@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
 <style>
   :root{
     --paper:#F4EFE3;
@@ -867,6 +869,10 @@ const navBox = document.getElementById('quicknav');
 // Chart.js インスタンス管理（再描画時に破棄してリーク・警告を防ぐ）
 let mainCharts = [];
 let compareChartInst = null;
+// ライブ更新時、価格チャートのズーム/パン範囲を再描画後も維持するための一時保存
+let pendingZoomRange = null;
+// 「表示をリセット」ボタンで戻す初期表示範囲（価格チャート基準。render()ごとに更新）
+let defaultChartXRange = null;
 // アニメーション無効（15秒ごとのライブ再描画でちらつかないように）
 if(window.Chart) Chart.defaults.animation = false;
 
@@ -1246,10 +1252,14 @@ const candlestickPlugin = {
     if(!data || chart.candlestickVisible===false) return;
     const {ctx, chartArea, scales} = chart;
     const xScale = scales.x, yScale = scales.y;
-    const slot = chartArea.width / data.length;
+    // 表示範囲（ズーム/パン後）に合わせて本数とローソク幅を決める
+    const startIdx = Math.max(0, Math.floor(xScale.min));
+    const endIdx = Math.min(data.length-1, Math.ceil(xScale.max));
+    const visibleCount = Math.max(1, endIdx - startIdx + 1);
+    const slot = chartArea.width / visibleCount;
     const bw = Math.max(1, Math.min(slot*0.6, 14));
     ctx.save();
-    for(let i=0;i<data.length;i++){
+    for(let i=startIdx;i<=endIdx;i++){
       const d = data[i];
       if(!d || d.o==null || d.c==null || d.h==null || d.l==null) continue;
       const x = xScale.getPixelForValue(i);
@@ -1273,6 +1283,82 @@ const candlestickPlugin = {
     ctx.restore();
   }
 };
+
+// 価格チャートのY軸範囲を「現在表示中(ズーム/パン後)のX範囲」のデータに合わせて再計算する
+// range省略時は chart.scales.x の現在値を使う（他チャートからの同期時はoptionsに設定した範囲をrangeで明示する）
+function rescaleY(chart, range){
+  const xmin = range ? range.min : chart.scales.x.min;
+  const xmax = range ? range.max : chart.scales.x.max;
+  const labelsLen = chart.data.labels.length;
+  const start = Math.max(0, Math.floor(xmin));
+  const end = Math.min(labelsLen-1, Math.ceil(xmax));
+  let lo = Infinity, hi = -Infinity;
+  chart.data.datasets.forEach((ds, idx) => {
+    if(chart.getDatasetMeta(idx).hidden) return;
+    for(let i=start;i<=end;i++){
+      const v = ds.data[i];
+      if(v==null || typeof v === 'object') continue;
+      if(v < lo) lo = v;
+      if(v > hi) hi = v;
+    }
+  });
+  if(lo===Infinity) return;
+  if(state.yScale==='log'){
+    chart.options.scales.y.min = Math.max(lo/1.05, lo*0.5, 0.0001);
+    chart.options.scales.y.max = hi*1.05;
+  } else {
+    const pad = (hi-lo)*0.05 || hi*0.02 || 1;
+    chart.options.scales.y.min = lo - pad;
+    chart.options.scales.y.max = hi + pad;
+  }
+  chart.update('none');
+}
+
+// RSI/MACD/出来高チャートのY軸範囲を「現在表示中のX範囲」のデータに合わせて再計算する
+function rescaleYGeneric(chart, opts={}){
+  const xmin = opts.min!=null ? opts.min : chart.scales.x.min;
+  const xmax = opts.max!=null ? opts.max : chart.scales.x.max;
+  const labelsLen = chart.data.labels.length;
+  const start = Math.max(0, Math.floor(xmin));
+  const end = Math.min(labelsLen-1, Math.ceil(xmax));
+  let lo = Infinity, hi = -Infinity;
+  chart.data.datasets.forEach((ds, idx) => {
+    if(chart.getDatasetMeta(idx).hidden) return;
+    for(let i=start;i<=end;i++){
+      const v = ds.data[i];
+      if(v==null || typeof v === 'object') continue;
+      if(v < lo) lo = v;
+      if(v > hi) hi = v;
+    }
+  });
+  if(lo===Infinity) return;
+  if(opts.beginAtZero) lo = Math.min(lo, 0);
+  const pad = (hi-lo)*0.05 || Math.abs(hi)*0.05 || 1;
+  chart.options.scales.y.min = opts.beginAtZero ? 0 : lo - pad;
+  chart.options.scales.y.max = hi + pad;
+  chart.update('none');
+}
+
+// 価格・RSI・MACD・出来高チャートのX軸表示範囲を同期させる（各チャート自身のデータ長に合わせてクランプ）
+function syncXRange(min, max){
+  mainCharts.forEach(chart => {
+    if(!chart || !chart.options || !chart.options.scales || !chart.options.scales.x) return;
+    const labelsLen = chart.data.labels.length;
+    const cmin = Math.max(0, Math.min(min, labelsLen-1));
+    const cmax = Math.max(cmin+1, Math.min(max, labelsLen-1));
+    chart.options.scales.x.min = cmin;
+    chart.options.scales.x.max = cmax;
+    const id = chart.canvas.id;
+    if(id === 'priceChart') rescaleY(chart, {min:cmin, max:cmax});
+    else if(id === 'rsiChart') chart.update('none');
+    else rescaleYGeneric(chart, {min:cmin, max:cmax, beginAtZero: id==='volumeChart'});
+  });
+}
+
+function resetPriceZoom(){
+  if(!defaultChartXRange) return;
+  syncXRange(defaultChartXRange.min, defaultChartXRange.max);
+}
 
 // ---------- data loading ----------
 async function fetchChart(symbol, range='10y', interval='1d'){
@@ -1392,7 +1478,13 @@ function liveRefresh(){
     fullCloses[fullCloses.length-1] = quote.price;  // 最終足の終値を更新
     if(fullHighs.length) fullHighs[fullHighs.length-1] = Math.max(fullHighs[fullHighs.length-1] ?? quote.price, quote.price);
     if(fullLows.length) fullLows[fullLows.length-1] = Math.min(fullLows[fullLows.length-1] ?? quote.price, quote.price);
+    // ユーザーがズーム/パンしていた表示範囲を再描画後も維持する
+    const pc = Chart.getChart('priceChart');
+    if(pc && pc.scales && pc.scales.x){
+      pendingZoomRange = { min: pc.scales.x.min, max: pc.scales.x.max };
+    }
     render();          // 総合判定・テクニカル指標・指値目安・チャートを再計算（予測は固定）
+    pendingZoomRange = null;
     setupScrollSpy();  // 再描画で差し替わった節をスクロールスパイに再登録
   }
   applyQuote();        // 気配ボード等のライブ値とフラッシュを反映
@@ -2157,24 +2249,7 @@ function render(){
 
   // --- Display window for charts ---
   const dispN = state.period;
-  const barDays = state.interval==='1wk' ? 7 : state.interval==='1mo' ? 30 : 1;
-  const withYear = dispN * barDays > 366;
-  const dispLabels = state.interval==='60m'
-    ? fullTimestamps.slice(-dispN).map(t=>fmtDateTime(t))
-    : fullTimestamps.slice(-dispN).map(t=>fmtDate(t, withYear));
-  const dispOpens = fullOpens.slice(-dispN);
   const dispCloses = fullCloses.slice(-dispN);
-  const dispHighs = fullHighs.slice(-dispN);
-  const dispLows = fullLows.slice(-dispN);
-  const dispMA25 = ma25Full.slice(-dispN);
-  const dispMA75 = ma75Full.slice(-dispN);
-  const dispMA200 = ma200Full.slice(-dispN);
-  const dispBBUpper = bbFull.upper.slice(-dispN);
-  const dispBBLower = bbFull.lower.slice(-dispN);
-  const dispRSI = rsiFull.slice(-dispN);
-  const dispMACD = macdFull.macdLine.slice(-dispN);
-  const dispSignal = macdFull.signalLine.slice(-dispN);
-  const dispHist = macdFull.hist.slice(-dispN);
   const dispVolumes = fullVolumes.slice(-dispN);
   const hasVolume = dispVolumes.some(v=>v!=null && v>0);
 
@@ -2187,35 +2262,53 @@ function render(){
   const volCloses = fullCloses.slice(-state.volLookback);
   const proj = getProjection(volCloses);
   const lastTs = fullTimestamps[last];
-  const futLabels = showProj ? futureLabels(lastTs, state.projDays, withYear) : [];
+  const futLabels = showProj ? futureLabels(lastTs, state.projDays, true) : [];
   const projEnd = proj.median[proj.median.length-1];
 
-  // 履歴(dispN日)＋予測(pDays日)を結合したチャート用データ
-  const chartLabels = [...dispLabels, ...futLabels];
+  // --- 価格チャート用データ（全期間分を渡し、表示範囲はズーム/パンで操作する） ---
+  const allLabels = state.interval==='60m'
+    ? fullTimestamps.map(t=>fmtDateTime(t))
+    : fullTimestamps.map(t=>fmtDate(t, true));
+  const chartLabels = [...allLabels, ...futLabels];
   const padNulls = new Array(pDays).fill(null);
-  const priceData = [...dispCloses, ...padNulls];
-  const ma25Data = [...dispMA25, ...padNulls];
-  const ma75Data = [...dispMA75, ...padNulls];
-  const ma200Data = [...dispMA200, ...padNulls];
-  const bbUpperData = [...dispBBUpper, ...padNulls];
-  const bbLowerData = [...dispBBLower, ...padNulls];
+  const priceData = [...fullCloses, ...padNulls];
+  const ma25Data = [...ma25Full, ...padNulls];
+  const ma75Data = [...ma75Full, ...padNulls];
+  const ma200Data = [...ma200Full, ...padNulls];
+  const bbUpperData = [...bbFull.upper, ...padNulls];
+  const bbLowerData = [...bbFull.lower, ...padNulls];
   // ローソク足用OHLCデータ（予測区間はnullで埋める）
-  const ohlcData = [...dispCloses.map((c,i)=>({o:dispOpens[i], h:dispHighs[i], l:dispLows[i], c})), ...padNulls];
-  const highData = [...dispHighs, ...padNulls];
-  const lowData = [...dispLows, ...padNulls];
-  const projUpper = new Array(dispN+pDays).fill(null);
-  const projLower = new Array(dispN+pDays).fill(null);
-  const projMedian = new Array(dispN+pDays).fill(null);
+  const ohlcData = [...fullCloses.map((c,i)=>({o:fullOpens[i], h:fullHighs[i], l:fullLows[i], c})), ...padNulls];
+  const highData = [...fullHighs, ...padNulls];
+  const lowData = [...fullLows, ...padNulls];
+  const projUpper = new Array(N+pDays).fill(null);
+  const projLower = new Array(N+pDays).fill(null);
+  const projMedian = new Array(N+pDays).fill(null);
   if(showProj){
-    projUpper[dispN-1] = lastPrice;
-    projLower[dispN-1] = lastPrice;
-    projMedian[dispN-1] = lastPrice;
+    projUpper[N-1] = lastPrice;
+    projLower[N-1] = lastPrice;
+    projMedian[N-1] = lastPrice;
     for(let i=0;i<state.projDays;i++){
-      projUpper[dispN+i] = proj.upper[i];
-      projLower[dispN+i] = proj.lower[i];
-      projMedian[dispN+i] = proj.median[i];
+      projUpper[N+i] = proj.upper[i];
+      projLower[N+i] = proj.lower[i];
+      projMedian[N+i] = proj.median[i];
     }
   }
+
+  // 価格チャートの初期表示範囲（直近dispN本＋予測区間）。
+  // ライブ更新による再描画時はユーザーがズーム/パンしていた範囲を維持する。
+  const totalLen = chartLabels.length;
+  const defaultXMin = Math.max(0, N - dispN);
+  const defaultXMax = totalLen - 1;
+  defaultChartXRange = { min: defaultXMin, max: defaultXMax };
+  let priceXMin = defaultXMin, priceXMax = defaultXMax;
+  if(pendingZoomRange){
+    priceXMin = Math.max(0, Math.min(pendingZoomRange.min, totalLen-1));
+    priceXMax = Math.max(priceXMin+1, Math.min(pendingZoomRange.max, totalLen-1));
+  }
+  // RSI/MACD/出来高チャートには予測区間がないため、表示範囲をN-1までに収める
+  const otherXMin = Math.max(0, Math.min(priceXMin, N-1));
+  const otherXMax = Math.max(otherXMin+1, Math.min(priceXMax, N-1));
 
   // --- 指値の目安（過去のボラティリティに基づく統計的な参考値） ---
   const {std: dailyStd} = computeLogStats(volCloses);
@@ -2403,7 +2496,8 @@ function render(){
         <button class="leg leg-ma200 ${state.seriesVisible.ma200?'':'off'}" data-series="ma200" onclick="toggleSeries('ma200')">200日移動平均線</button>
         <button class="leg leg-band ${state.seriesVisible.bb?'':'off'}" data-series="bb" onclick="toggleSeries('bb')">ボリンジャーバンド</button>
         ${showProj ? `<button class="leg leg-median ${state.seriesVisible.proj?'':'off'}" data-series="proj" onclick="toggleSeries('proj')">予測レンジ</button>` : ''}
-        <span class="legend-hint">クリックで表示切替</span>
+        <button class="leg" onclick="resetPriceZoom()">表示をリセット</button>
+        <span class="legend-hint">ホイールでズーム・ドラッグで移動／クリックで表示切替</span>
       </div>
       <div class="scenario-note">
         直近${dispN}${barUnit()}の値幅: ${fmtPrice(recentLow)} 〜 ${fmtPrice(recentHigh)}　/　200日移動平均線: ${curMA200?fmtPrice(curMA200):'--'}<br>
@@ -2558,10 +2652,15 @@ function render(){
             if(!d || d.o==null) return [];
             return [`始値 ${fmtPrice(d.o)}　高値 ${fmtPrice(d.h)}`, `安値 ${fmtPrice(d.l)}　終値 ${fmtPrice(d.c)}`];
           }
-        })
+        }),
+        zoom:{
+          pan:{ enabled:true, mode:'x', onPanComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
+          zoom:{ wheel:{enabled:true}, pinch:{enabled:true}, mode:'x', onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
+          limits:{ x:{ min:0, max: totalLen-1, minRange: Math.min(10, totalLen) } }
+        }
       },
       scales:{
-        x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}},
+        x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}, min: priceXMin, max: priceXMax},
         y:{
           type: state.yScale==='log' ? 'logarithmic' : 'linear',
           ticks:{color:'#6E6356', font:{family:'JetBrains Mono', size:10}, callback:v=>fmtPrice(v)},
@@ -2573,15 +2672,23 @@ function render(){
   });
   priceChartInst.candlestickData = state.chartType==='candlestick' ? ohlcData : null;
   priceChartInst.candlestickVisible = state.seriesVisible.price;
+  rescaleY(priceChartInst);
   mainCharts.push(priceChartInst);
 
+  // 価格チャートと表示範囲を同期させるズーム/パン設定（予測区間を含まないチャート用）
+  const subZoomPlugin = {
+    pan:{ enabled:true, mode:'x', onPanComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
+    zoom:{ wheel:{enabled:true}, pinch:{enabled:true}, mode:'x', onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
+    limits:{ x:{ min:0, max: N-1, minRange: Math.min(10, N) } }
+  };
+
   // RSI chart
-  mainCharts.push(new Chart(document.getElementById('rsiChart'), {
+  const rsiChartInst = new Chart(document.getElementById('rsiChart'), {
     type:'line',
     data:{
-      labels: dispLabels,
+      labels: allLabels,
       datasets:[
-        {label:'RSI', data: dispRSI, borderColor:'#BF4B33', borderWidth:1.6, pointRadius:0, tension:0.1}
+        {label:'RSI', data: rsiFull, borderColor:'#BF4B33', borderWidth:1.6, pointRadius:0, tension:0.1}
       ]
     },
     options:{
@@ -2589,23 +2696,25 @@ function render(){
       interaction: HOVER_INTERACTION,
       plugins:{
         legend:{display:false},
-        tooltip: tooltipTheme((item)=>`RSI: ${item.parsed.y.toFixed(1)}`)
+        tooltip: tooltipTheme((item)=>`RSI: ${item.parsed.y.toFixed(1)}`),
+        zoom: subZoomPlugin
       },
       scales:{
-        x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}},
+        x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}, min: otherXMin, max: otherXMax},
         y:{min:0, max:100, ticks:{color:'#6E6356', font:{family:'JetBrains Mono', size:10}, stepSize:25}, grid:{color:'#D8CFC0'}}
       }
     }
-  }));
+  });
+  mainCharts.push(rsiChartInst);
 
   // MACD chart
-  mainCharts.push(new Chart(document.getElementById('macdChart'), {
+  const macdChartInst = new Chart(document.getElementById('macdChart'), {
     data:{
-      labels: dispLabels,
+      labels: allLabels,
       datasets:[
-        {type:'bar', label:'ヒストグラム', data: dispHist, backgroundColor: dispHist.map(v=> v>=0 ? 'rgba(53,92,91,0.35)' : 'rgba(191,75,51,0.35)'), borderWidth:0},
-        {type:'line', label:'MACD', data: dispMACD, borderColor:'#2A2420', borderWidth:1.6, pointRadius:0, tension:0.1},
-        {type:'line', label:'シグナル', data: dispSignal, borderColor:'#C8A24A', borderWidth:1.6, pointRadius:0, tension:0.1},
+        {type:'bar', label:'ヒストグラム', data: macdFull.hist, backgroundColor: macdFull.hist.map(v=> v>=0 ? 'rgba(53,92,91,0.35)' : 'rgba(191,75,51,0.35)'), borderWidth:0},
+        {type:'line', label:'MACD', data: macdFull.macdLine, borderColor:'#2A2420', borderWidth:1.6, pointRadius:0, tension:0.1},
+        {type:'line', label:'シグナル', data: macdFull.signalLine, borderColor:'#C8A24A', borderWidth:1.6, pointRadius:0, tension:0.1},
       ]
     },
     options:{
@@ -2613,27 +2722,30 @@ function render(){
       interaction: HOVER_INTERACTION,
       plugins:{
         legend:{display:false},
-        tooltip: tooltipTheme((item)=>`${item.dataset.label}: ${item.parsed.y!=null?item.parsed.y.toFixed(2):'--'}`)
+        tooltip: tooltipTheme((item)=>`${item.dataset.label}: ${item.parsed.y!=null?item.parsed.y.toFixed(2):'--'}`),
+        zoom: subZoomPlugin
       },
       scales:{
-        x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}},
+        x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}, min: otherXMin, max: otherXMax},
         y:{ticks:{color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{color:'#D8CFC0'}}
       }
     }
-  }));
+  });
+  mainCharts.push(macdChartInst);
+  rescaleYGeneric(macdChartInst);
 
   // Volume chart
   if(hasVolume){
-    mainCharts.push(new Chart(document.getElementById('volumeChart'), {
+    const volumeChartInst = new Chart(document.getElementById('volumeChart'), {
       type:'bar',
       data:{
-        labels: dispLabels,
+        labels: allLabels,
         datasets:[{
           label:'出来高',
-          data: dispVolumes,
-          backgroundColor: dispCloses.map((c,i)=> i===0
+          data: fullVolumes,
+          backgroundColor: fullCloses.map((c,i)=> i===0
             ? 'rgba(110,99,86,0.35)'
-            : (c>=dispCloses[i-1] ? 'rgba(53,92,91,0.35)' : 'rgba(191,75,51,0.35)')),
+            : (c>=fullCloses[i-1] ? 'rgba(53,92,91,0.35)' : 'rgba(191,75,51,0.35)')),
           borderWidth:0,
         }]
       },
@@ -2649,11 +2761,13 @@ function render(){
             else if(v>=1e4) s=(v/1e4).toFixed(0)+'万';
             else s=v.toLocaleString('ja-JP');
             return '出来高: '+s;
-          })
+          }),
+          zoom: subZoomPlugin
         },
         scales:{
-          x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}},
+          x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}, min: otherXMin, max: otherXMax},
           y:{
+            min:0,
             ticks:{color:'#6E6356', font:{family:'JetBrains Mono', size:10}, callback:v=>{
               if(v>=1e8) return (v/1e8).toFixed(1)+'億';
               if(v>=1e4) return (v/1e4).toFixed(0)+'万';
@@ -2663,7 +2777,9 @@ function render(){
           }
         }
       }
-    }));
+    });
+    mainCharts.push(volumeChartInst);
+    rescaleYGeneric(volumeChartInst, {beginAtZero:true});
   }
 }
 
