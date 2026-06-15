@@ -26,15 +26,17 @@ app.get('/api/chart', async (req, res) => {
     const timestamps = result.timestamp || [];
     const quote = result.indicators?.quote?.[0] || {};
     const closes = quote.close || [];
+    const opens = quote.open || [];
     const highs = quote.high || [];
     const lows = quote.low || [];
     const volumes = quote.volume || [];
 
     // null（休場・データ欠損）を除去
-    const out = { timestamps: [], closes: [], highs: [], lows: [], volumes: [] };
+    const out = { timestamps: [], opens: [], closes: [], highs: [], lows: [], volumes: [] };
     for (let i = 0; i < timestamps.length; i++) {
       if (closes[i] == null) continue;
       out.timestamps.push(timestamps[i] * 1000);
+      out.opens.push(opens[i] ?? closes[i]);
       out.closes.push(closes[i]);
       out.highs.push(highs[i] ?? closes[i]);
       out.lows.push(lows[i] ?? closes[i]);

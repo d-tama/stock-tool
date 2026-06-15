@@ -784,6 +784,8 @@
     .info-band{flex-direction:row; align-items:stretch;}
     /* 左列(心理+出来高)=2 : 右列(指値)=1 */
     .info-col-left{flex:2 1 0;}
+    /* 出来高パネルを下端まで伸ばし、右列(指値の目安)と下端を揃える */
+    .info-col-left > .panel:last-child{flex:1 1 auto;}
     .info-band > #sec-limit{
       flex:1 1 0;
       min-width:0;
@@ -847,7 +849,7 @@
     <strong>このツールについて</strong><br>
     これは将来の価格を予測するものではありません。「総合判定スタンプ」とシグナルメーターは、移動平均線・RSI・MACD・ボリンジャーバンド・200日線との距離といった一般的なテクニカル指標を機械的なルールで集計した「現状の目安」であり、買い・売りのタイミングを保証するものではありません。ニュース・決算・マクロ経済の変化などは反映されていません。表示される判定は投資の勧誘・助言ではありません。購入・売却の判断は、ご自身で情報を確認したうえで、自己責任で行ってください。<br><br>
     <strong>データについて</strong><br>
-    価格データは Yahoo Finance の公開情報をサーバー経由で取得しています。日足データのみ対応で、銘柄や取引所によっては取得できない・更新が遅れる場合があります。
+    価格データは Yahoo Finance の公開情報をサーバー経由で取得しています。日足・週足・月足・1時間足に対応していますが、銘柄や取引所によっては取得できない・更新が遅れる場合があります。1時間足は直近約2年分のみ取得できます。
   </div>
 </div>
 
@@ -896,7 +898,10 @@ const PRESETS = [
 ];
 
 let fullTimestamps = [];
+let fullOpens = [];
 let fullCloses = [];
+let fullHighs = [];
+let fullLows = [];
 let fullVolumes = [];
 let meta = {};
 let fngData = null;
@@ -933,7 +938,9 @@ function rangeForDays(days){
 const state = {
   symbol: '^N225',
   symbolName: '日経平均株価',
-  period: 180,    // 表示期間（日数）
+  period: 180,    // 表示期間（本数）
+  interval: '1d',  // 表示間隔: '1d'=日足 / '1wk'=週足 / '1mo'=月足 / '60m'=1時間足
+  chartType: 'candlestick', // 'line'=ラインチャート / 'candlestick'=ローソク足
   yScale: 'linear',
   volLookback: 240, // ボラティリティ算出期間（日数）
   projDays: 90,     // シナリオ投影期間（日数）
@@ -951,8 +958,13 @@ function toggleSeries(key){
   state.seriesVisible[key] = !state.seriesVisible[key];
   const chart = Chart.getChart('priceChart');
   if(chart){
-    SERIES_GROUPS[key].forEach(i=> chart.setDatasetVisibility(i, state.seriesVisible[key]));
-    chart.update();
+    if(key==='price' && state.chartType==='candlestick'){
+      chart.candlestickVisible = state.seriesVisible.price;
+      chart.update();
+    } else {
+      SERIES_GROUPS[key].forEach(i=> chart.setDatasetVisibility(i, state.seriesVisible[key]));
+      chart.update();
+    }
   }
   document.querySelectorAll(`.leg[data-series="${key}"]`).forEach(el=>el.classList.toggle('off', !state.seriesVisible[key]));
 }
@@ -1123,6 +1135,10 @@ function fmtDate(ts, withYear){
   if(withYear) return (d.getFullYear()%100) + '/' + (d.getMonth()+1) + '/' + d.getDate();
   return (d.getMonth()+1)+'/'+d.getDate();
 }
+function fmtDateTime(ts){
+  const d = new Date(ts);
+  return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':00';
+}
 function fmtPercent(n, digits=2){
   if(n==null) return '--';
   return (n*100).toFixed(digits) + '%';
@@ -1170,7 +1186,7 @@ function scoreMeterSVG(score){
 // ---------- chart helpers ----------
 // カーソルを縦に合わせるだけで、その日時の全系列の値をまとめて表示する共通設定
 const HOVER_INTERACTION = { mode:'index', intersect:false };
-function tooltipTheme(labelFn){
+function tooltipTheme(labelFn, extraCallbacks={}){
   return {
     enabled:true,
     backgroundColor:'rgba(42,36,32,0.94)',
@@ -1182,8 +1198,8 @@ function tooltipTheme(labelFn){
     titleFont:{family:'JetBrains Mono', size:11},
     bodyFont:{family:'JetBrains Mono', size:11.5},
     bodySpacing:5,
-    filter:(item)=> item.parsed.y !== null && !isNaN(item.parsed.y),
-    callbacks:{ label: labelFn }
+    filter:(item)=> item.parsed.y !== null && !isNaN(item.parsed.y) && !item.dataset.label.startsWith('_'),
+    callbacks:{ label: labelFn, ...extraCallbacks }
   };
 }
 
@@ -1219,9 +1235,48 @@ const currentValueLinePlugin = {
   }
 };
 
+// ローソク足を描画するプラグイン（category軸のインデックスに合わせてOHLCを描く）
+// ※ データはChartのoptions(プラグインオプション)経由ではなく、chartインスタンスの
+//   プロパティに直接持たせる（options配下はscriptable optionのProxy化により
+//   配列のforEach等が正しく機能しないため）。
+const candlestickPlugin = {
+  id:'candlestick',
+  beforeDatasetsDraw(chart){
+    const data = chart.candlestickData;
+    if(!data || chart.candlestickVisible===false) return;
+    const {ctx, chartArea, scales} = chart;
+    const xScale = scales.x, yScale = scales.y;
+    const slot = chartArea.width / data.length;
+    const bw = Math.max(1, Math.min(slot*0.6, 14));
+    ctx.save();
+    for(let i=0;i<data.length;i++){
+      const d = data[i];
+      if(!d || d.o==null || d.c==null || d.h==null || d.l==null) continue;
+      const x = xScale.getPixelForValue(i);
+      const yO = yScale.getPixelForValue(d.o);
+      const yC = yScale.getPixelForValue(d.c);
+      const yH = yScale.getPixelForValue(d.h);
+      const yL = yScale.getPixelForValue(d.l);
+      const up = d.c >= d.o;
+      const color = up ? '#355C5B' : '#BF4B33';
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, yH);
+      ctx.lineTo(x, yL);
+      ctx.stroke();
+      const top = Math.min(yO, yC);
+      const h = Math.max(1, Math.abs(yC-yO));
+      ctx.fillRect(x-bw/2, top, bw, h);
+    }
+    ctx.restore();
+  }
+};
+
 // ---------- data loading ----------
-async function fetchChart(symbol, range='10y'){
-  const res = await fetch(`${location.origin}/api/chart?symbol=${encodeURIComponent(symbol)}&range=${range}&interval=1d`);
+async function fetchChart(symbol, range='10y', interval='1d'){
+  const res = await fetch(`${location.origin}/api/chart?symbol=${encodeURIComponent(symbol)}&range=${range}&interval=${interval}`);
   const json = await res.json();
   if(!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
   return json;
@@ -1335,6 +1390,8 @@ function liveRefresh(){
   const changed = quote.price !== lastQuotePrice;
   if(live && changed && fullCloses.length){
     fullCloses[fullCloses.length-1] = quote.price;  // 最終足の終値を更新
+    if(fullHighs.length) fullHighs[fullHighs.length-1] = Math.max(fullHighs[fullHighs.length-1] ?? quote.price, quote.price);
+    if(fullLows.length) fullLows[fullLows.length-1] = Math.min(fullLows[fullLows.length-1] ?? quote.price, quote.price);
     render();          // 総合判定・テクニカル指標・指値目安・チャートを再計算（予測は固定）
     setupScrollSpy();  // 再描画で差し替わった節をスクロールスパイに再登録
   }
@@ -1363,9 +1420,14 @@ document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pollQuo
 async function load(){
   content.innerHTML = `<div class="loading">価格データを読み込んでいます…</div>`;
   try{
-    const data = await fetchChart(state.symbol);
+    // 1時間足はYahoo Finance側の制約で長期間のデータを取得できないため、直近約2年分に限定
+    const range = state.interval === '60m' ? '730d' : '10y';
+    const data = await fetchChart(state.symbol, range, state.interval);
     fullTimestamps = data.timestamps;
+    fullOpens = data.opens || [];
     fullCloses = data.closes;
+    fullHighs = data.highs || [];
+    fullLows = data.lows || [];
     fullVolumes = data.volumes || [];
     meta = {
       currency: data.currency,
@@ -1422,6 +1484,43 @@ async function load(){
 // ---------- controls ----------
 function periodOptions(){
   const N = fullTimestamps.length;
+  if(state.interval === '60m'){
+    const raw = [
+      {label:'1日', days:10},
+      {label:'3日', days:30},
+      {label:'1週間', days:50},
+      {label:'2週間', days:100},
+      {label:'1ヶ月', days:200},
+      {label:'3ヶ月', days:500},
+    ].filter(o=>o.days < N);
+    raw.push({label:`全期間(${N}本)`, days:N});
+    return raw;
+  }
+  if(state.interval === '1wk'){
+    const raw = [
+      {label:'3ヶ月', days:13},
+      {label:'6ヶ月', days:26},
+      {label:'1年', days:52},
+      {label:'2年', days:104},
+      {label:'3年', days:156},
+      {label:'5年', days:260},
+    ].filter(o=>o.days < N);
+    const yrs = N/52;
+    raw.push({label: yrs>=1.05 ? `全期間(約${yrs.toFixed(1)}年)` : `全期間(${N}週)`, days:N});
+    return raw;
+  }
+  if(state.interval === '1mo'){
+    const raw = [
+      {label:'1年', days:12},
+      {label:'2年', days:24},
+      {label:'3年', days:36},
+      {label:'5年', days:60},
+      {label:'10年', days:120},
+    ].filter(o=>o.days < N);
+    const yrs = N/12;
+    raw.push({label: yrs>=1.05 ? `全期間(約${yrs.toFixed(1)}年)` : `全期間(${N}ヶ月)`, days:N});
+    return raw;
+  }
   const raw = [
     {label:'1週間', days:7},
     {label:'2週間', days:14},
@@ -1436,6 +1535,20 @@ function periodOptions(){
   const yrs = N/250;
   raw.push({label: yrs>=1.05 ? `全期間(約${yrs.toFixed(1)}年)` : `全期間(${N}日)`, days:N});
   return raw;
+}
+
+// 表示間隔ごとの「本数」の単位（チャート見出し・直近N本表記などに使用）
+function barUnit(){
+  if(state.interval === '1wk') return '週';
+  if(state.interval === '1mo') return 'か月';
+  if(state.interval === '60m') return '本';
+  return '日';
+}
+
+// チャート見出し等で使う「〇〇日間／〇〇本」のような期間表記
+function periodLabel(dispN){
+  const u = barUnit();
+  return u === '本' ? `${dispN}${u}` : `${dispN}${u}間`;
 }
 
 function volLookbackOptions(){
@@ -1469,6 +1582,20 @@ function setPeriod(d){
 }
 function setShowProjection(v){ state.showProjection = v; renderAll(); }
 function setYScale(s){ state.yScale = s; renderAll(); }
+function setChartType(t){
+  if(state.chartType === t) return;
+  state.chartType = t;
+  renderAll();
+}
+function setChartInterval(iv){
+  if(state.interval === iv) return;
+  state.interval = iv;
+  // 足の種類に応じて表示本数の初期値を調整（週足=約2年分、月足=約2年分、1時間足=直近2週間程度）
+  state.period = iv === '1mo' ? 24 : (iv === '1wk' ? 104 : (iv === '60m' ? 100 : 180));
+  // 予測シナリオは日足の値動き（年率換算）を前提としているため、日足以外では非表示にする
+  state.showProjection = (iv === '1d');
+  load();
+}
 function setVolLookback(d){
   const N = fullCloses.length;
   state.volLookback = Math.min(Math.max(10, d), N);
@@ -1726,21 +1853,36 @@ function renderControls(){
       <span>${unit}</span>
     </span>`;
 
+  const periodUnit = state.interval==='1wk' ? '週（任意）' : state.interval==='1mo' ? 'か月（任意）' : state.interval==='60m' ? '本（任意）' : '日（任意）';
+
   controlsBox.innerHTML = `
     <div class="control-group">
       <span class="ctrl-label">銘柄</span>
       ${presetPills}
     </div>
     <div class="control-group">
+      <span class="ctrl-label">足</span>
+      <button class="pill ${state.interval==='60m'?'active':''}" onclick="setChartInterval('60m')">1時間足</button>
+      <button class="pill ${state.interval==='1d'?'active':''}" onclick="setChartInterval('1d')">日足</button>
+      <button class="pill ${state.interval==='1wk'?'active':''}" onclick="setChartInterval('1wk')">週足</button>
+      <button class="pill ${state.interval==='1mo'?'active':''}" onclick="setChartInterval('1mo')">月足</button>
+    </div>
+    <div class="control-group">
+      <span class="ctrl-label">表示方式</span>
+      <button class="pill ${state.chartType==='line'?'active':''}" onclick="setChartType('line')">ラインチャート</button>
+      <button class="pill ${state.chartType==='candlestick'?'active':''}" onclick="setChartType('candlestick')">ローソク足</button>
+    </div>
+    <div class="control-group">
       <span class="ctrl-label">表示期間</span>
       ${pills(periodOptions(), state.period, 'setPeriod')}
-      ${customInput(state.period, N, 'setPeriod', '日（任意）')}
+      ${customInput(state.period, N, 'setPeriod', periodUnit)}
     </div>
     <div class="control-group">
       <span class="ctrl-label">Y軸</span>
       <button class="pill ${state.yScale==='linear'?'active':''}" onclick="setYScale('linear')">通常</button>
       <button class="pill ${state.yScale==='log'?'active':''}" onclick="setYScale('log')">対数</button>
     </div>
+    ${state.interval==='1d' ? `
     <div class="control-group">
       <span class="ctrl-label">予測シナリオ</span>
       <button class="pill ${state.showProjection?'active':''}" onclick="setShowProjection(true)">表示</button>
@@ -1756,7 +1898,11 @@ function renderControls(){
       <span class="ctrl-label">予測期間</span>
       ${pills(projDayOptions, state.projDays, 'setProjDays')}
       ${customInput(state.projDays, PROJ_DAYS_MAX, 'setProjDays', '日（任意）')}
-    </div>` : ''}
+    </div>` : ''}` : `
+    <div class="control-group">
+      <span class="ctrl-label">予測シナリオ</span>
+      <span class="legend-hint" style="margin-left:0;">日足以外では表示されません（日足のみ対応）</span>
+    </div>`}
   `;
 }
 
@@ -2011,9 +2157,15 @@ function render(){
 
   // --- Display window for charts ---
   const dispN = state.period;
-  const withYear = dispN > 366;
-  const dispLabels = fullTimestamps.slice(-dispN).map(t=>fmtDate(t, withYear));
+  const barDays = state.interval==='1wk' ? 7 : state.interval==='1mo' ? 30 : 1;
+  const withYear = dispN * barDays > 366;
+  const dispLabels = state.interval==='60m'
+    ? fullTimestamps.slice(-dispN).map(t=>fmtDateTime(t))
+    : fullTimestamps.slice(-dispN).map(t=>fmtDate(t, withYear));
+  const dispOpens = fullOpens.slice(-dispN);
   const dispCloses = fullCloses.slice(-dispN);
+  const dispHighs = fullHighs.slice(-dispN);
+  const dispLows = fullLows.slice(-dispN);
   const dispMA25 = ma25Full.slice(-dispN);
   const dispMA75 = ma75Full.slice(-dispN);
   const dispMA200 = ma200Full.slice(-dispN);
@@ -2047,6 +2199,10 @@ function render(){
   const ma200Data = [...dispMA200, ...padNulls];
   const bbUpperData = [...dispBBUpper, ...padNulls];
   const bbLowerData = [...dispBBLower, ...padNulls];
+  // ローソク足用OHLCデータ（予測区間はnullで埋める）
+  const ohlcData = [...dispCloses.map((c,i)=>({o:dispOpens[i], h:dispHighs[i], l:dispLows[i], c})), ...padNulls];
+  const highData = [...dispHighs, ...padNulls];
+  const lowData = [...dispLows, ...padNulls];
   const projUpper = new Array(dispN+pDays).fill(null);
   const projLower = new Array(dispN+pDays).fill(null);
   const projMedian = new Array(dispN+pDays).fill(null);
@@ -2238,10 +2394,10 @@ function render(){
 
   const chartPanelHTML = `
     <div class="panel" id="sec-chart">
-      <div class="section-title">価格チャート${showProj ? `＋統計的シナリオ予測（${dispN}日間 + 今後${state.projDays}日）` : `（${dispN}日間）`}</div>
+      <div class="section-title">価格チャート${showProj ? `＋統計的シナリオ予測（${periodLabel(dispN)} + 今後${state.projDays}日）` : `（${periodLabel(dispN)}）`}</div>
       <div class="chart-box"><canvas id="priceChart"></canvas></div>
       <div class="legend-row">
-        <button class="leg leg-price ${state.seriesVisible.price?'':'off'}" data-series="price" onclick="toggleSeries('price')">価格</button>
+        <button class="leg leg-price ${state.seriesVisible.price?'':'off'}" data-series="price" onclick="toggleSeries('price')">${state.chartType==='candlestick' ? 'ローソク足' : '価格'}</button>
         <button class="leg leg-ma25 ${state.seriesVisible.ma25?'':'off'}" data-series="ma25" onclick="toggleSeries('ma25')">25日移動平均線</button>
         <button class="leg leg-ma75 ${state.seriesVisible.ma75?'':'off'}" data-series="ma75" onclick="toggleSeries('ma75')">75日移動平均線</button>
         <button class="leg leg-ma200 ${state.seriesVisible.ma200?'':'off'}" data-series="ma200" onclick="toggleSeries('ma200')">200日移動平均線</button>
@@ -2250,7 +2406,7 @@ function render(){
         <span class="legend-hint">クリックで表示切替</span>
       </div>
       <div class="scenario-note">
-        直近${dispN}日の値幅: ${fmtPrice(recentLow)} 〜 ${fmtPrice(recentHigh)}　/　200日移動平均線: ${curMA200?fmtPrice(curMA200):'--'}<br>
+        直近${dispN}${barUnit()}の値幅: ${fmtPrice(recentLow)} 〜 ${fmtPrice(recentHigh)}　/　200日移動平均線: ${curMA200?fmtPrice(curMA200):'--'}<br>
         ${showProj ? `過去${state.volLookback}日のボラティリティ（年率換算 約${proj.annualizedVol.toFixed(0)}%）をもとに、400通りのランダムな値動きパターンをシミュレーションした結果です。<br>
         ${state.projDays}日後の中央シナリオ: ${fmtPrice(projEnd)}（現在比 ${((projEnd/lastPrice-1)*100>=0?'+':'')}${((projEnd/lastPrice-1)*100).toFixed(1)}%）、想定レンジ: ${fmtPrice(proj.lower[proj.lower.length-1])} 〜 ${fmtPrice(proj.upper[proj.upper.length-1])}<br>
         これは「過去と同じ程度の変動が続いた場合に統計的にありえる範囲」を示すものであり、実際の方向性を示すものではありません。ニュースや決算、マクロ経済の変化などは反映されていません。算出期間を変えると結果も変わります。`
@@ -2325,7 +2481,7 @@ function render(){
     ${fngPanelHTML}
 
     <div class="panel" id="sec-volume">
-      <div class="section-title">出来高（${dispN}日間）</div>
+      <div class="section-title">出来高（${periodLabel(dispN)}）</div>
       ${hasVolume
         ? '<div class="chart-box small"><canvas id="volumeChart"></canvas></div>'
         : '<div class="loading" style="padding:20px;">この銘柄では出来高データを取得できません。</div>'}
@@ -2369,12 +2525,12 @@ function render(){
   `;
 
   // Price chart
-  mainCharts.push(new Chart(document.getElementById('priceChart'), {
+  const priceChartInst = new Chart(document.getElementById('priceChart'), {
     type:'line',
     data:{
       labels: chartLabels,
       datasets:[
-        {label:'価格', data: priceData, borderColor:'#2A2420', borderWidth:1.6, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.price},
+        {label:'価格', data: priceData, borderColor:'#2A2420', borderWidth:1.6, pointRadius:0, tension:0.1, fill:false, hidden: state.chartType==='candlestick' ? true : !state.seriesVisible.price},
         {label:'25日線', data: ma25Data, borderColor:'#C8A24A', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma25},
         {label:'75日線', data: ma75Data, borderColor:'#355C5B', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma75},
         {label:'200日線', data: ma200Data, borderColor:'#BF4B33', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma200},
@@ -2383,6 +2539,10 @@ function render(){
         {label:'予測上限(90%タイル)', data: projUpper, borderColor:'#355C5B', borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.proj},
         {label:'予測下限(10%タイル)', data: projLower, borderColor:'#355C5B', borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:6, backgroundColor:'rgba(53,92,91,0.10)', hidden:!state.seriesVisible.proj},
         {label:'予測中央値', data: projMedian, borderColor:'#2A2420', borderWidth:1.6, borderDash:[6,4], pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.proj},
+        ...(state.chartType==='candlestick' ? [
+          {label:'_high', data: highData, borderColor:'transparent', backgroundColor:'transparent', pointRadius:0, borderWidth:0, fill:false, tension:0},
+          {label:'_low', data: lowData, borderColor:'transparent', backgroundColor:'transparent', pointRadius:0, borderWidth:0, fill:false, tension:0},
+        ] : []),
       ]
     },
     options:{
@@ -2391,7 +2551,14 @@ function render(){
       plugins:{
         legend:{display:false},
         currentValueLine:{ value:lastPrice, label:'現在 '+fmtPrice(lastPrice), color:'#2A2420' },
-        tooltip: tooltipTheme((item)=>`${item.dataset.label}: ${fmtPrice(item.parsed.y)}`)
+        tooltip: tooltipTheme((item)=>`${item.dataset.label}: ${fmtPrice(item.parsed.y)}`, {
+          afterBody: (items)=>{
+            if(state.chartType!=='candlestick' || !items.length) return [];
+            const d = ohlcData[items[0].dataIndex];
+            if(!d || d.o==null) return [];
+            return [`始値 ${fmtPrice(d.o)}　高値 ${fmtPrice(d.h)}`, `安値 ${fmtPrice(d.l)}　終値 ${fmtPrice(d.c)}`];
+          }
+        })
       },
       scales:{
         x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}},
@@ -2402,8 +2569,11 @@ function render(){
         }
       }
     },
-    plugins:[currentValueLinePlugin]
-  }));
+    plugins:[currentValueLinePlugin, candlestickPlugin]
+  });
+  priceChartInst.candlestickData = state.chartType==='candlestick' ? ohlcData : null;
+  priceChartInst.candlestickVisible = state.seriesVisible.price;
+  mainCharts.push(priceChartInst);
 
   // RSI chart
   mainCharts.push(new Chart(document.getElementById('rsiChart'), {
