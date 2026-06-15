@@ -221,6 +221,10 @@ app.get('/api/quote', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.listen(PORT, () => {
-  console.log(`株式分析ツール起動: http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`株式分析ツール起動: http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
