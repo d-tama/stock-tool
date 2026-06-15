@@ -718,6 +718,17 @@
     border-top:1px dashed var(--line);
   }
 
+  .info-banner{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    line-height:1.7;
+    background:rgba(200,162,74,0.12);
+    border:1px solid var(--gold);
+    border-radius:6px;
+    padding:8px 12px;
+    margin-bottom:12px;
+  }
+
   .disclaimer{
     border-top:1px solid var(--line);
     margin-top:30px;
@@ -910,6 +921,8 @@ let fullHighs = [];
 let fullLows = [];
 let fullVolumes = [];
 let meta = {};
+// 日足等のデータ件数が少なく1時間足へ自動切替した場合に通知バナーを表示するためのフラグ
+let intervalAutoFallback = false;
 let fngData = null;
 let fundamentals = null;
 let quote = null;            // リアルタイム気配（/api/quote）
@@ -952,7 +965,7 @@ const state = {
   projDays: 90,     // シナリオ投影期間（日数）
   compareSymbols: ['^N225','^GSPC','^IXIC'], // 相対パフォーマンス比較の対象
   comparePeriod: 180, // 比較期間（日数）
-  showProjection: true, // 予測シナリオ（将来予測）の表示
+  showProjection: false, // 予測シナリオ（将来予測）の表示
   // 価格チャートの各系列の表示/非表示
   seriesVisible: { price:true, ma25:true, ma75:true, ma200:true, bb:true, proj:true },
 };
@@ -1511,10 +1524,22 @@ document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pollQuo
 
 async function load(){
   content.innerHTML = `<div class="loading">価格データを読み込んでいます…</div>`;
+  intervalAutoFallback = false;
   try{
     // 1時間足はYahoo Finance側の制約で長期間のデータを取得できないため、直近約2年分に限定
     const range = state.interval === '60m' ? '730d' : '10y';
-    const data = await fetchChart(state.symbol, range, state.interval);
+    let data = await fetchChart(state.symbol, range, state.interval);
+    // 新規上場銘柄などで日足・週足・月足のデータが少なすぎる場合、1時間足に自動切替する
+    if(data.closes.length < 30 && state.interval !== '60m'){
+      const fallback = await fetchChart(state.symbol, '730d', '60m');
+      if(fallback.closes.length > data.closes.length){
+        data = fallback;
+        state.interval = '60m';
+        state.showProjection = false;
+        state.period = data.closes.length; // 全期間を表示
+        intervalAutoFallback = true;
+      }
+    }
     fullTimestamps = data.timestamps;
     fullOpens = data.opens || [];
     fullCloses = data.closes;
@@ -1526,7 +1551,7 @@ async function load(){
       exchangeName: data.exchangeName,
       instrumentType: data.instrumentType,
     };
-    if(fullCloses.length < 30){
+    if(fullCloses.length < 5){
       throw new Error('データ件数が少なすぎます（' + fullCloses.length + '件）');
     }
   }catch(err){
@@ -2488,6 +2513,7 @@ function render(){
   const chartPanelHTML = `
     <div class="panel" id="sec-chart">
       <div class="section-title">価格チャート${showProj ? `＋統計的シナリオ予測（${periodLabel(dispN)} + 今後${state.projDays}日）` : `（${periodLabel(dispN)}）`}</div>
+      ${intervalAutoFallback ? `<div class="info-banner">この銘柄は日足の取得可能なデータが少ないため、自動的に「1時間足・全期間」表示に切り替えました。</div>` : ''}
       <div class="chart-box"><canvas id="priceChart"></canvas></div>
       <div class="legend-row">
         <button class="leg leg-price ${state.seriesVisible.price?'':'off'}" data-series="price" onclick="toggleSeries('price')">${state.chartType==='candlestick' ? 'ローソク足' : '価格'}</button>
@@ -2595,8 +2621,13 @@ function render(){
           <tr class="buy"><td>買い指値（強め, -2σ）</td><td>${fmtPrice(limitHorizons[0].buy2)}</td><td>${fmtPrice(limitHorizons[1].buy2)}</td></tr>
         </tbody>
       </table>
+      <div class="ctrl-row" style="margin-top:10px;">
+        <span class="ctrl-label">算出期間</span>
+        ${volLookbackOptions().map(o=>`<button class="pill ${o.days===state.volLookback?'active':''}" onclick="setVolLookback(${o.days})">${o.label}</button>`).join('')}
+        <span class="custom-input"><input type="number" min="1" max="${N}" step="1" value="${state.volLookback}" onkeydown="if(event.key==='Enter') this.blur();" onchange="setVolLookback(parseInt(this.value,10)||${state.volLookback})"><span>日（任意）</span></span>
+      </div>
       <div class="scenario-note">
-        σ（シグマ）は「予測算出期間」（${state.volLookback}日）から算出した1日あたりの変動率です。±1σ・±2σは、過去と同程度の変動が続いた場合に統計的に到達しうる価格の目安であり、実際にその価格まで動く・約定する保証はありません。指値の発注は、ご自身の判断と責任で行ってください。
+        σ（シグマ）は上記の「算出期間」（${state.volLookback}日）から計算した1日あたりの変動率です。±1σ・±2σは、過去と同程度の変動が続いた場合に統計的に到達しうる価格の目安であり、実際にその価格まで動く・約定する保証はありません。指値の発注は、ご自身の判断と責任で行ってください。
       </div>
     </div>
     </div><!-- /.info-band -->
