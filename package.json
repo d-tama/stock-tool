@@ -1,0 +1,12 @@
+{
+  "name": "stock-tool",
+  "version": "1.0.0",
+  "description": "株価・指数チャート＆テクニカル分析ツール",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
