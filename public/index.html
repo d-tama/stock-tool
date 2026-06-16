@@ -760,6 +760,15 @@
   }
   .chart-scrubber-label{ font-family:'JetBrains Mono',monospace; font-size:10px; color:#6E6356; white-space:nowrap; }
 
+  /* 凡例内 MA日数インライン入力 */
+  .ma-day-input{
+    width:30px; border:none; background:transparent; color:inherit;
+    font:inherit; font-size:10.5px; text-align:right; padding:0; outline:none;
+    -moz-appearance:textfield; appearance:textfield;
+  }
+  .ma-day-input::-webkit-inner-spin-button,
+  .ma-day-input::-webkit-outer-spin-button{ opacity:0.6; cursor:pointer; }
+
   .disclaimer{
     border-top:1px solid var(--line);
     margin-top:30px;
@@ -1002,6 +1011,7 @@ const state = {
   showProjection: false, // 予測シナリオ（将来予測）の表示
   // 価格チャートの各系列の表示/非表示
   seriesVisible: { price:true, ma25:true, ma75:true, ma200:true, bb:true, proj:true },
+  maDays: [25, 75, 200],
 };
 
 // 凡例キー → 価格チャートのデータセット番号
@@ -1020,6 +1030,18 @@ function toggleSeries(key){
     }
   }
   document.querySelectorAll(`.leg[data-series="${key}"]`).forEach(el=>el.classList.toggle('off', !state.seriesVisible[key]));
+}
+
+function setMaPreset(days){
+  state.maDays = [...days];
+  render();
+}
+
+function setMaDays(idx, val){
+  const d = Math.max(1, Math.min(parseInt(val)||state.maDays[idx], fullCloses.length));
+  if(d === state.maDays[idx]) return;
+  state.maDays[idx] = d;
+  render();
 }
 
 // ---------- math helpers ----------
@@ -1313,9 +1335,10 @@ function showScrubberBar(idx){
       html += `<span class="hb-item"><span class="hb-dot" style="background:${cc}"></span>終 ${fmtPrice(d.c)}</span>`;
     }
   }
-  priceChart.data.datasets.forEach(ds=>{
+  priceChart.data.datasets.forEach((ds,di)=>{
     if(ds.label.startsWith('_')) return;
     if(state.chartType==='candlestick' && ds.label==='価格') return;
+    if(priceChart.getDatasetMeta(di).hidden) return;
     const v = ds.data[idx];
     if(v==null || isNaN(v)) return;
     html += `<span class="hb-item"><span class="hb-dot" style="background:${dotColor(ds.borderColor)}"></span>${ds.label}: ${fmtPrice(v)}</span>`;
@@ -2280,9 +2303,9 @@ function render(){
   const chgClass = change>=0 ? 'up' : 'down';
   const chgSign = change>=0 ? '+' : '';
 
-  const ma25Full = sma(fullCloses, 25);
-  const ma75Full = sma(fullCloses, 75);
-  const ma200Full = sma(fullCloses, 200);
+  const ma25Full = sma(fullCloses, state.maDays[0]);
+  const ma75Full = sma(fullCloses, state.maDays[1]);
+  const ma200Full = sma(fullCloses, state.maDays[2]);
   const rsiFull = rsi(fullCloses, 14);
   const bbFull = bollinger(fullCloses, 20, 2);
   const macdFull = macd(fullCloses);
@@ -2682,13 +2705,19 @@ function render(){
       </div>` : ''}
       <div class="legend-row">
         <button class="leg leg-price ${state.seriesVisible.price?'':'off'}" data-series="price" onclick="toggleSeries('price')">${state.chartType==='candlestick' ? 'ローソク足' : '価格'}</button>
-        <button class="leg leg-ma25 ${state.seriesVisible.ma25?'':'off'}" data-series="ma25" onclick="toggleSeries('ma25')">25日移動平均線</button>
-        <button class="leg leg-ma75 ${state.seriesVisible.ma75?'':'off'}" data-series="ma75" onclick="toggleSeries('ma75')">75日移動平均線</button>
-        <button class="leg leg-ma200 ${state.seriesVisible.ma200?'':'off'}" data-series="ma200" onclick="toggleSeries('ma200')">200日移動平均線</button>
+        <button class="leg leg-ma25 ${state.seriesVisible.ma25?'':'off'}" data-series="ma25" onclick="toggleSeries('ma25')"><input class="ma-day-input" type="number" min="1" max="${N}" value="${state.maDays[0]}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')this.blur()" onchange="setMaDays(0,this.value)">日移動平均線</button>
+        <button class="leg leg-ma75 ${state.seriesVisible.ma75?'':'off'}" data-series="ma75" onclick="toggleSeries('ma75')"><input class="ma-day-input" type="number" min="1" max="${N}" value="${state.maDays[1]}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')this.blur()" onchange="setMaDays(1,this.value)">日移動平均線</button>
+        <button class="leg leg-ma200 ${state.seriesVisible.ma200?'':'off'}" data-series="ma200" onclick="toggleSeries('ma200')"><input class="ma-day-input" type="number" min="1" max="${N}" value="${state.maDays[2]}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')this.blur()" onchange="setMaDays(2,this.value)">日移動平均線</button>
         <button class="leg leg-band ${state.seriesVisible.bb?'':'off'}" data-series="bb" onclick="toggleSeries('bb')">ボリンジャーバンド</button>
         ${showProj ? `<button class="leg leg-median ${state.seriesVisible.proj?'':'off'}" data-series="proj" onclick="toggleSeries('proj')">予測レンジ</button>` : ''}
         <button class="leg" onclick="resetPriceZoom()">表示をリセット</button>
         <span class="legend-hint">ホイールでズーム・ドラッグで移動／クリックで表示切替</span>
+      </div>
+      <div class="legend-row" style="margin-top:4px;">
+        <span class="ctrl-label" style="font-size:10px;">MA一括設定</span>
+        <button class="pill ${JSON.stringify(state.maDays)==='[5,25,75]'?'active':''}" onclick="setMaPreset([5,25,75])">日本株スイング 5/25/75</button>
+        <button class="pill ${JSON.stringify(state.maDays)==='[20,50,200]'?'active':''}" onclick="setMaPreset([20,50,200])">世界基準 20/50/200</button>
+        <button class="pill ${JSON.stringify(state.maDays)==='[25,75,200]'?'active':''}" onclick="setMaPreset([25,75,200])">中長期 25/75/200</button>
       </div>
       <div class="scenario-note">
         直近${dispN}${barUnit()}の値幅: ${fmtPrice(recentLow)} 〜 ${fmtPrice(recentHigh)}　/　200日移動平均線: ${curMA200?fmtPrice(curMA200):'--'}<br>
@@ -2820,10 +2849,10 @@ function render(){
     data:{
       labels: chartLabels,
       datasets:[
-        {label:'価格', data: priceData, borderColor:'#2A2420', borderWidth:1.6, pointRadius:0, tension:0.1, fill:false, hidden: state.chartType==='candlestick' ? true : !state.seriesVisible.price},
-        {label:'25日線', data: ma25Data, borderColor:'#C8A24A', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma25},
-        {label:'75日線', data: ma75Data, borderColor:'#355C5B', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma75},
-        {label:'200日線', data: ma200Data, borderColor:'#BF4B33', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma200},
+        {label:'価格', data: priceData, borderColor: state.chartType==='candlestick'?'transparent':'#2A2420', borderWidth:1.6, pointRadius:0, tension:0.1, fill:false, hidden: state.chartType==='candlestick' ? false : !state.seriesVisible.price},
+        {label:`${state.maDays[0]}日線`, data: ma25Data, borderColor:'#C8A24A', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma25},
+        {label:`${state.maDays[1]}日線`, data: ma75Data, borderColor:'#355C5B', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma75},
+        {label:`${state.maDays[2]}日線`, data: ma200Data, borderColor:'#BF4B33', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma200},
         {label:'上限(+2σ)', data: bbUpperData, borderColor:'#C8A24A', borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.bb},
         {label:'下限(-2σ)', data: bbLowerData, borderColor:'#C8A24A', borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:4, backgroundColor:'rgba(200,162,74,0.12)', hidden:!state.seriesVisible.bb},
         {label:'予測上限(90%タイル)', data: projUpper, borderColor:'#355C5B', borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.proj},
@@ -2843,10 +2872,14 @@ function render(){
         currentValueLine:{ value:lastPrice, label:'現在 '+fmtPrice(lastPrice), color:'#2A2420' },
         tooltip: isTouchOnly
           ? { enabled:false, external: updatePriceHoverBar }
-          : tooltipTheme((item)=>`${item.dataset.label}: ${fmtPrice(item.parsed.y)}`, {
+          : tooltipTheme((item)=>{
+              if(state.chartType==='candlestick' && item.dataset.label==='価格') return null;
+              return `${item.dataset.label}: ${fmtPrice(item.parsed.y)}`;
+            }, {
               afterBody: (items)=>{
                 if(state.chartType!=='candlestick' || !items.length) return [];
-                const d = ohlcData[items[0].dataIndex];
+                const priceItem = items.find(i=>i.dataset.label==='価格') || items[0];
+                const d = ohlcData[priceItem.dataIndex];
                 if(!d || d.o==null) return [];
                 return [`始値 ${fmtPrice(d.o)}　高値 ${fmtPrice(d.h)}`, `安値 ${fmtPrice(d.l)}　終値 ${fmtPrice(d.c)}`];
               }
