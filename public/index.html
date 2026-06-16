@@ -1361,6 +1361,7 @@ function showScrubberBar(idx){
       const v = ds.data[i];
       if(v!=null && !isNaN(v)) activeElements.push({datasetIndex:di, index:i});
     });
+    ch.setActiveElements(activeElements);
     ch.tooltip.setActiveElements(activeElements, {x:0,y:0});
     ch.update('none');
   });
