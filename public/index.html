@@ -1390,10 +1390,75 @@ function showScrubberBar(idx){
   });
 }
 
+function syncAllScrubbers(idx){
+  ['chartScrubber','rsiScrubber','macdScrubber','volumeScrubber'].forEach(id=>{
+    const s = document.getElementById(id);
+    if(s) s.value = idx;
+  });
+  showScrubberBar(idx);
+  updateSubChartBars(idx);
+}
+
 function onChartScrubber(){
   const s = document.getElementById('chartScrubber');
   if(!s) return;
-  showScrubberBar(parseInt(s.value));
+  syncAllScrubbers(parseInt(s.value));
+}
+
+function onSubScrubber(input){
+  syncAllScrubbers(parseInt(input.value));
+}
+
+function updateSubChartBars(idx){
+  const priceChart = mainCharts.find(c=>c.canvas.id==='priceChart');
+  if(!priceChart) return;
+  const label = priceChart.data.labels[idx] || '';
+  const priceV = priceChart.data.datasets[0].data[idx];
+  const priceTxt = priceV!=null ? fmtPrice(priceV) : '--';
+
+  const rsiBar = document.getElementById('rsiHoverBar');
+  if(rsiBar){
+    const rsiChart = mainCharts.find(c=>c.canvas.id==='rsiChart');
+    const rsiDs = rsiChart?.data.datasets.find(d=>d.label==='RSI');
+    const rv = rsiDs?.data[Math.min(idx, (rsiDs.data.length||1)-1)];
+    let h = `<span class="hb-date">${label}</span>`;
+    h += `<span class="hb-item"><span class="hb-dot" style="background:#C8BFB4"></span>価格: ${priceTxt}</span>`;
+    if(rv!=null && !isNaN(rv)) h += `<span class="hb-item"><span class="hb-dot" style="background:#BF4B33"></span>RSI: ${rv.toFixed(1)}</span>`;
+    rsiBar.innerHTML = h; rsiBar.classList.add('active');
+  }
+
+  const macdBar = document.getElementById('macdHoverBar');
+  if(macdBar){
+    const macdChart = mainCharts.find(c=>c.canvas.id==='macdChart');
+    let h = `<span class="hb-date">${label}</span>`;
+    h += `<span class="hb-item"><span class="hb-dot" style="background:#C8BFB4"></span>価格: ${priceTxt}</span>`;
+    if(macdChart){
+      macdChart.data.datasets.forEach(ds=>{
+        if(ds.label.startsWith('_')) return;
+        const v = ds.data[Math.min(idx, (ds.data.length||1)-1)];
+        if(v==null || isNaN(v)) return;
+        const bc = typeof ds.borderColor==='string'?ds.borderColor:(typeof ds.backgroundColor==='string'?ds.backgroundColor:'#8C9B9A');
+        const dc = (!bc||bc==='transparent')?'#C8BFB4':bc;
+        h += `<span class="hb-item"><span class="hb-dot" style="background:${dc}"></span>${ds.label}: ${v.toFixed(2)}</span>`;
+      });
+    }
+    macdBar.innerHTML = h; macdBar.classList.add('active');
+  }
+
+  const volBar = document.getElementById('volumeHoverBar');
+  if(volBar){
+    const volChart = mainCharts.find(c=>c.canvas.id==='volumeChart');
+    let h = `<span class="hb-date">${label}</span>`;
+    h += `<span class="hb-item"><span class="hb-dot" style="background:#C8BFB4"></span>価格: ${priceTxt}</span>`;
+    if(volChart?.data.datasets[0]){
+      const v = volChart.data.datasets[0].data[Math.min(idx,(volChart.data.datasets[0].data.length||1)-1)];
+      if(v!=null && !isNaN(v) && v>0){
+        let s; if(v>=1e8) s=(v/1e8).toFixed(1)+'億'; else if(v>=1e4) s=(v/1e4).toFixed(0)+'万'; else s=v.toLocaleString('ja-JP');
+        h += `<span class="hb-item"><span class="hb-dot" style="background:#8C9B9A"></span>出来高: ${s}</span>`;
+      }
+    }
+    volBar.innerHTML = h; volBar.classList.add('active');
+  }
 }
 
 // 現在値を示す横破線（価格チャート用、外部プラグインなしで描画）
@@ -1541,12 +1606,13 @@ function syncXRange(min, max){
     else rescaleYGeneric(chart, {min:cmin, max:cmax, beginAtZero: id==='volumeChart'});
   });
   if(isTouchOnly){
-    const s = document.getElementById('chartScrubber');
-    if(s){
-      s.min = min; s.max = max;
-      const cur = parseInt(s.value);
-      s.value = Math.max(min, Math.min(max, cur));
-    }
+    ['chartScrubber','rsiScrubber','macdScrubber','volumeScrubber'].forEach(id=>{
+      const s = document.getElementById(id);
+      if(s){
+        s.min = min; s.max = max;
+        s.value = Math.max(min, Math.min(max, parseInt(s.value)||max));
+      }
+    });
   }
 }
 
@@ -2400,13 +2466,13 @@ function render(){
   let distNote, distTag, distTagClass;
   if(distMA200 !== null){
     if(distMA200 < -8){
-      distNote = '200日線より大きく下に位置（割安感が出やすい水準）';
+      distNote = `${state.maDays[2]}日線より大きく下に位置（割安感が出やすい水準）`;
       distTag='下振れ'; distTagClass='buy';
     } else if(distMA200 > 12){
-      distNote = '200日線より大きく上に位置（過熱感が出やすい水準）';
+      distNote = `${state.maDays[2]}日線より大きく上に位置（過熱感が出やすい水準）`;
       distTag='上振れ'; distTagClass='sell';
     } else {
-      distNote = '200日線から大きく離れていない状態';
+      distNote = `${state.maDays[2]}日線から大きく離れていない状態`;
       distTag='通常圏'; distTagClass='neutral';
     }
   } else {
@@ -2420,7 +2486,7 @@ function render(){
     {name:'RSI', tagClass:rsiTagClass},
     {name:'ボリンジャーバンド', tagClass:bbTagClass},
     {name:'MACD', tagClass:macdTagClass},
-    {name:'200日線との距離', tagClass:distTagClass},
+    {name:`${state.maDays[2]}日線との距離`, tagClass:distTagClass},
   ];
   let buyCount=0, sellCount=0;
   indicators.forEach(i=>{
@@ -2451,7 +2517,7 @@ function render(){
       <span class="chip ${rsiTagClass}">RSI: ${rsiTag}</span>
       <span class="chip ${bbTagClass}">ボリンジャー: ${bbTag}</span>
       <span class="chip ${macdTagClass}">MACD: ${macdTag}</span>
-      <span class="chip ${distTagClass}">200日線距離: ${distTag}</span>
+      <span class="chip ${distTagClass}">${state.maDays[2]}日線距離: ${distTag}</span>
     </div>`;
 
   // --- Display window for charts ---
@@ -2657,9 +2723,9 @@ function render(){
         <div class="card">
           <div class="label">移動平均線${infoTip('一定期間の価格の平均値を結んだ線。短期線が長期線を上抜く（ゴールデンクロス）と上昇トレンド入り、下抜く（デッドクロス）と下降トレンド入りのサインとされます。')}</div>
           <div class="value">${fmtPrice(lastPrice)}</div>
-          <div class="note">25日線: ${curMA25?fmtPrice(curMA25):'--'}</div>
-          <div class="note">75日線: ${curMA75?fmtPrice(curMA75):'--'}</div>
-          <div class="note">200日線: ${curMA200?fmtPrice(curMA200):'--'}</div>
+          <div class="note">${state.maDays[0]}日線: ${curMA25?fmtPrice(curMA25):'--'}</div>
+          <div class="note">${state.maDays[1]}日線: ${curMA75?fmtPrice(curMA75):'--'}</div>
+          <div class="note">${state.maDays[2]}日線: ${curMA200?fmtPrice(curMA200):'--'}</div>
           <div class="note">${maSignal}</div>
           <div class="tag ${maTagClass}">${maTag}</div>
         </div>
@@ -2684,7 +2750,7 @@ function render(){
           <div class="tag ${macdTagClass}">${macdTag}</div>
         </div>
         <div class="card">
-          <div class="label">200日線との距離${infoTip('現在の価格が200日移動平均線からどれだけ離れているかを示す割合。長期的な上昇/下降トレンドからの位置や、行き過ぎの度合いを見る目安になります。')}</div>
+          <div class="label">${state.maDays[2]}日線との距離${infoTip('現在の価格が長期移動平均線からどれだけ離れているかを示す割合。長期的な上昇/下降トレンドからの位置や、行き過ぎの度合いを見る目安になります。')}</div>
           <div class="value">${distMA200!==null ? (distMA200>=0?'+':'')+distMA200.toFixed(1)+'%' : '--'}</div>
           <div class="note">${distNote}</div>
           <div class="tag ${distTagClass}">${distTag}</div>
@@ -2720,7 +2786,7 @@ function render(){
         <button class="pill ${JSON.stringify(state.maDays)==='[25,75,200]'?'active':''}" onclick="setMaPreset([25,75,200])">中長期 25/75/200</button>
       </div>
       <div class="scenario-note">
-        直近${dispN}${barUnit()}の値幅: ${fmtPrice(recentLow)} 〜 ${fmtPrice(recentHigh)}　/　200日移動平均線: ${curMA200?fmtPrice(curMA200):'--'}<br>
+        直近${dispN}${barUnit()}の値幅: ${fmtPrice(recentLow)} 〜 ${fmtPrice(recentHigh)}　/　${state.maDays[2]}日移動平均線: ${curMA200?fmtPrice(curMA200):'--'}<br>
         ${showProj ? `過去${state.volLookback}日のボラティリティ（年率換算 約${proj.annualizedVol.toFixed(0)}%）をもとに、400通りのランダムな値動きパターンをシミュレーションした結果です。<br>
         ${state.projDays}日後の中央シナリオ: ${fmtPrice(projEnd)}（現在比 ${((projEnd/lastPrice-1)*100>=0?'+':'')}${((projEnd/lastPrice-1)*100).toFixed(1)}%）、想定レンジ: ${fmtPrice(proj.lower[proj.lower.length-1])} 〜 ${fmtPrice(proj.upper[proj.upper.length-1])}<br>
         これは「過去と同じ程度の変動が続いた場合に統計的にありえる範囲」を示すものであり、実際の方向性を示すものではありません。ニュースや決算、マクロ経済の変化などは反映されていません。算出期間を変えると結果も変わります。`
@@ -2796,9 +2862,11 @@ function render(){
 
     <div class="panel" id="sec-volume">
       <div class="section-title">出来高（${periodLabel(dispN)}）</div>
-      ${hasVolume
-        ? '<div class="chart-box small"><canvas id="volumeChart"></canvas></div>'
-        : '<div class="loading" style="padding:20px;">この銘柄では出来高データを取得できません。</div>'}
+      ${hasVolume ? `
+        ${isTouchOnly ? '<div class="chart-hover-bar touch-bar" id="volumeHoverBar"></div>' : ''}
+        <div class="chart-box small"><canvas id="volumeChart"></canvas></div>
+        ${isTouchOnly ? `<div class="chart-scrubber-wrap touch-scrubber"><span class="chart-scrubber-label">◀</span><input type="range" id="volumeScrubber" min="0" max="0" value="0" oninput="onSubScrubber(this)"><span class="chart-scrubber-label">▶</span></div>` : ''}
+      ` : '<div class="loading" style="padding:20px;">この銘柄では出来高データを取得できません。</div>'}
     </div>
     </div><!-- /.info-col-left -->
 
@@ -2833,11 +2901,15 @@ function render(){
       <div class="osc-grid">
         <div>
           <div class="osc-title">RSI（14日）${infoTip('Relative Strength Indexの略。直近14日間の値動きから、上昇と下落どちらの勢いが強いかを0〜100で示す指標です。70以上は「買われすぎ」、30以下は「売られすぎ」とされ、行き過ぎた相場の反転を察知する目安に使われます。')}<span class="osc-now">現在 ${curRSI!==null?curRSI.toFixed(1):'--'}</span></div>
+          ${isTouchOnly ? '<div class="chart-hover-bar touch-bar" id="rsiHoverBar"></div>' : ''}
           <div class="chart-box small"><canvas id="rsiChart"></canvas></div>
+          ${isTouchOnly ? `<div class="chart-scrubber-wrap touch-scrubber"><span class="chart-scrubber-label">◀</span><input type="range" id="rsiScrubber" min="0" max="0" value="0" oninput="onSubScrubber(this)"><span class="chart-scrubber-label">▶</span></div>` : ''}
         </div>
         <div>
           <div class="osc-title">MACD（12,26,9）${infoTip('Moving Average Convergence Divergenceの略。短期（12日）と長期（26日）の移動平均線の差（MACD線）と、その移動平均（シグナル線・9日）を組み合わせたトレンド系指標です。MACD線がシグナル線を上に抜けると買いシグナル、下に抜けると売りシグナルとされます。')}<span class="osc-now">現在 ${curMACD!==null?curMACD.toFixed(2):'--'} / シグナル ${curSignal!==null?curSignal.toFixed(2):'--'}</span></div>
+          ${isTouchOnly ? '<div class="chart-hover-bar touch-bar" id="macdHoverBar"></div>' : ''}
           <div class="chart-box small"><canvas id="macdChart"></canvas></div>
+          ${isTouchOnly ? `<div class="chart-scrubber-wrap touch-scrubber"><span class="chart-scrubber-label">◀</span><input type="range" id="macdScrubber" min="0" max="0" value="0" oninput="onSubScrubber(this)"><span class="chart-scrubber-label">▶</span></div>` : ''}
         </div>
       </div>
     </div>
@@ -3015,6 +3087,13 @@ function render(){
     });
     mainCharts.push(volumeChartInst);
     rescaleYGeneric(volumeChartInst, {beginAtZero:true});
+  }
+
+  if(isTouchOnly){
+    ['rsiScrubber','macdScrubber','volumeScrubber'].forEach(id=>{
+      const s = document.getElementById(id);
+      if(s){ s.min = priceXMin; s.max = priceXMax; s.value = priceXMax; }
+    });
   }
 }
 
