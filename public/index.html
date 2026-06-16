@@ -1292,6 +1292,86 @@ function updatePriceHoverBar(context){
   bar.classList.add('active');
 }
 
+// スクラバーで選択したインデックスのデータを上部バーに表示し、全チャートに十字線を立てる
+function showScrubberBar(idx){
+  const bar = document.getElementById('priceHoverBar');
+  if(!bar || !mainCharts.length) return;
+  const priceChart = mainCharts.find(c=>c.canvas.id==='priceChart');
+  if(!priceChart) return;
+
+  const label = priceChart.data.labels[idx] || '';
+  const dotColor = c => (!c || c==='#2A2420' || c==='transparent') ? '#C8BFB4' : c;
+  let html = `<span class="hb-date">${label}</span>`;
+
+  if(state.chartType==='candlestick' && priceChart.candlestickData){
+    const d = priceChart.candlestickData[idx];
+    if(d && d.o!=null){
+      const cc = d.c>=d.o ? '#5B9B9A' : '#E07060';
+      html += `<span class="hb-item"><span class="hb-dot" style="background:${cc}"></span>始 ${fmtPrice(d.o)}</span>`;
+      html += `<span class="hb-item"><span class="hb-dot" style="background:${cc}"></span>高 ${fmtPrice(d.h)}</span>`;
+      html += `<span class="hb-item"><span class="hb-dot" style="background:${cc}"></span>安 ${fmtPrice(d.l)}</span>`;
+      html += `<span class="hb-item"><span class="hb-dot" style="background:${cc}"></span>終 ${fmtPrice(d.c)}</span>`;
+    }
+  }
+  priceChart.data.datasets.forEach(ds=>{
+    if(ds.label.startsWith('_')) return;
+    if(state.chartType==='candlestick' && ds.label==='価格') return;
+    const v = ds.data[idx];
+    if(v==null || isNaN(v)) return;
+    html += `<span class="hb-item"><span class="hb-dot" style="background:${dotColor(ds.borderColor)}"></span>${ds.label}: ${fmtPrice(v)}</span>`;
+  });
+
+  const rsiChart = mainCharts.find(c=>c.canvas.id==='rsiChart');
+  if(rsiChart){
+    const ds = rsiChart.data.datasets.find(d=>d.label==='RSI');
+    if(ds){ const v=ds.data[idx]; if(v!=null && !isNaN(v)) html+=`<span class="hb-item"><span class="hb-dot" style="background:${dotColor(ds.borderColor)}"></span>RSI: ${v.toFixed(1)}</span>`; }
+  }
+
+  const macdChart = mainCharts.find(c=>c.canvas.id==='macdChart');
+  if(macdChart){
+    macdChart.data.datasets.forEach(ds=>{
+      if(ds.label.startsWith('_')) return;
+      const v = ds.data[idx];
+      if(v==null || isNaN(v)) return;
+      const bc = typeof ds.borderColor==='string' ? ds.borderColor : (typeof ds.backgroundColor==='string' ? ds.backgroundColor : '#8C9B9A');
+      html += `<span class="hb-item"><span class="hb-dot" style="background:${dotColor(bc)}"></span>${ds.label}: ${v.toFixed(2)}</span>`;
+    });
+  }
+
+  const volChart = mainCharts.find(c=>c.canvas.id==='volumeChart');
+  if(volChart && volChart.data.datasets[0]){
+    const v = volChart.data.datasets[0].data[idx];
+    if(v!=null && !isNaN(v) && v>0){
+      let s;
+      if(v>=1e8) s=(v/1e8).toFixed(1)+'億';
+      else if(v>=1e4) s=(v/1e4).toFixed(0)+'万';
+      else s=v.toLocaleString('ja-JP');
+      html += `<span class="hb-item"><span class="hb-dot" style="background:#8C9B9A"></span>出来高: ${s}</span>`;
+    }
+  }
+
+  bar.innerHTML = html;
+  bar.classList.add('active');
+
+  mainCharts.forEach(ch=>{
+    const n = ch.data.labels.length;
+    const i = Math.min(idx, n-1);
+    const activeElements = [];
+    ch.data.datasets.forEach((ds,di)=>{
+      const v = ds.data[i];
+      if(v!=null && !isNaN(v)) activeElements.push({datasetIndex:di, index:i});
+    });
+    ch.tooltip.setActiveElements(activeElements, {x:0,y:0});
+    ch.update('none');
+  });
+}
+
+function onChartScrubber(){
+  const s = document.getElementById('chartScrubber');
+  if(!s) return;
+  showScrubberBar(parseInt(s.value));
+}
+
 // 現在値を示す横破線（価格チャート用、外部プラグインなしで描画）
 const currentValueLinePlugin = {
   id:'currentValueLine',
@@ -1436,6 +1516,14 @@ function syncXRange(min, max){
     else if(id === 'rsiChart') chart.update('none');
     else rescaleYGeneric(chart, {min:cmin, max:cmax, beginAtZero: id==='volumeChart'});
   });
+  if(isTouchOnly){
+    const s = document.getElementById('chartScrubber');
+    if(s){
+      s.min = min; s.max = max;
+      const cur = parseInt(s.value);
+      s.value = Math.max(min, Math.min(max, cur));
+    }
+  }
 }
 
 function resetPriceZoom(){
@@ -2586,6 +2674,11 @@ function render(){
       ${intervalAutoFallback ? `<div class="info-banner">この銘柄は日足の取得可能なデータが少ないため、自動的に「1時間足・全期間」表示に切り替えました。</div>` : ''}
       <div class="chart-hover-bar${isTouchOnly?' touch-bar':''}" id="priceHoverBar"></div>
       <div class="chart-box"><canvas id="priceChart"></canvas></div>
+      ${isTouchOnly ? `<div class="chart-scrubber-wrap touch-scrubber">
+        <span class="chart-scrubber-label">◀</span>
+        <input type="range" id="chartScrubber" min="0" max="0" value="0" oninput="onChartScrubber()">
+        <span class="chart-scrubber-label">▶</span>
+      </div>` : ''}
       <div class="legend-row">
         <button class="leg leg-price ${state.seriesVisible.price?'':'off'}" data-series="price" onclick="toggleSeries('price')">${state.chartType==='candlestick' ? 'ローソク足' : '価格'}</button>
         <button class="leg leg-ma25 ${state.seriesVisible.ma25?'':'off'}" data-series="ma25" onclick="toggleSeries('ma25')">25日移動平均線</button>
@@ -2778,6 +2871,10 @@ function render(){
   priceChartInst.candlestickVisible = state.seriesVisible.price;
   rescaleY(priceChartInst);
   mainCharts.push(priceChartInst);
+  if(isTouchOnly){
+    const s = document.getElementById('chartScrubber');
+    if(s){ s.min = priceXMin; s.max = priceXMax; s.value = priceXMax; }
+  }
 
   // 価格チャートと表示範囲を同期させるズーム/パン設定（予測区間を含まないチャート用）
   const subZoomPlugin = {
