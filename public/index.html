@@ -472,6 +472,8 @@
     text-align:left;
     display:none;
   }
+  .info-icon.tip-right::after{ left:auto; right:0; }
+  .info-icon.tip-center::after{ left:50%; transform:translateX(-50%); }
   .info-icon:hover::after,
   .info-icon:focus::after{
     display:block;
@@ -3143,6 +3145,25 @@ function render(){
 }
 
 load();
+
+// --- info-tip overflow guard ---
+(function(){
+  function adjustInfoTip(e){
+    const icon = e.target && e.target.closest && e.target.closest('.info-icon');
+    if(!icon) return;
+    icon.classList.remove('tip-right','tip-center');
+    const r = icon.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const tw = Math.min(230, vw - 28);
+    if(r.left + tw > vw - 14){
+      // right-align: tooltip right edge = icon right edge
+      if(r.right - tw >= 14) icon.classList.add('tip-right');
+      else icon.classList.add('tip-center');
+    }
+  }
+  document.addEventListener('mouseover', adjustInfoTip);
+  document.addEventListener('focusin', adjustInfoTip);
+})();
 </script>
 </body>
 </html>
