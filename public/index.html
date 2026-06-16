@@ -752,6 +752,14 @@
   .chart-hover-bar .hb-item{ white-space:nowrap; font-size:11px; display:inline-flex; align-items:center; gap:3px; }
   .chart-hover-bar .hb-dot{ display:inline-block; width:7px; height:7px; border-radius:1px; flex-shrink:0; }
 
+  /* スマホ用：チャート下部のスクラバー（時系列位置選択バー） */
+  .chart-scrubber-wrap{ display:none; padding:4px 6px 8px; }
+  .chart-scrubber-wrap.touch-scrubber{ display:flex; align-items:center; gap:6px; }
+  .chart-scrubber-wrap input[type="range"]{
+    flex:1; height:22px; accent-color:#C8A24A; cursor:pointer;
+  }
+  .chart-scrubber-label{ font-family:'JetBrains Mono',monospace; font-size:10px; color:#6E6356; white-space:nowrap; }
+
   .disclaimer{
     border-top:1px solid var(--line);
     margin-top:30px;
@@ -2001,7 +2009,7 @@ async function loadCompareChart(){
       interaction: HOVER_INTERACTION,
       plugins:{
         legend:{display:true, position:'bottom', labels:{color:'#6E6356', font:{family:'JetBrains Mono', size:11}, boxWidth:14}},
-        tooltip: {
+        tooltip: isTouchOnly ? {enabled:false} : {
           ...tooltipTheme((item)=>`${item.dataset.label}: ${item.parsed.y>=0?'+':''}${item.parsed.y.toFixed(2)}%`),
           itemSort:(a,b)=> b.parsed.y - a.parsed.y
         }
