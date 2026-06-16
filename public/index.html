@@ -729,6 +729,25 @@
     margin-bottom:12px;
   }
 
+  /* チャートホバー時の値表示バー（チャートに重ならない固定位置表示） */
+  .chart-hover-bar{
+    display:none;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    background:rgba(42,36,32,0.92);
+    color:#F4EFE3;
+    border-radius:5px;
+    padding:5px 10px;
+    margin-bottom:6px;
+    line-height:1.8;
+    flex-wrap:wrap;
+    gap:0 12px;
+    align-items:baseline;
+  }
+  .chart-hover-bar.active{ display:flex; }
+  .chart-hover-bar .hb-date{ color:var(--gold); font-size:10.5px; margin-right:4px; flex-shrink:0; }
+  .chart-hover-bar .hb-item{ white-space:nowrap; font-size:11px; }
+
   .disclaimer{
     border-top:1px solid var(--line);
     margin-top:30px;
@@ -1220,6 +1239,37 @@ function tooltipTheme(labelFn, extraCallbacks={}){
     filter:(item)=> item.parsed.y !== null && !isNaN(item.parsed.y) && !item.dataset.label.startsWith('_'),
     callbacks:{ label: labelFn, ...extraCallbacks }
   };
+}
+
+// 価格チャートのホバー値をチャート外の固定バーに表示（スマホでチャートに重ならないようにするため）
+function updatePriceHoverBar(context){
+  const {chart, tooltip} = context;
+  const bar = document.getElementById('priceHoverBar');
+  if(!bar) return;
+  if(tooltip.opacity === 0 || !tooltip.dataPoints?.length){
+    bar.classList.remove('active');
+    return;
+  }
+  const title = tooltip.title?.[0] || '';
+  const points = tooltip.dataPoints.filter(p=>
+    p.parsed.y !== null && !isNaN(p.parsed.y) && !p.dataset.label.startsWith('_')
+  );
+  let html = `<span class="hb-date">${title}</span>`;
+  if(state.chartType==='candlestick' && chart.candlestickData){
+    const d = chart.candlestickData[tooltip.dataPoints[0]?.dataIndex];
+    if(d && d.o!=null){
+      html += `<span class="hb-item">始値 ${fmtPrice(d.o)}</span>`;
+      html += `<span class="hb-item">高値 ${fmtPrice(d.h)}</span>`;
+      html += `<span class="hb-item">安値 ${fmtPrice(d.l)}</span>`;
+      html += `<span class="hb-item">終値 ${fmtPrice(d.c)}</span>`;
+    }
+  }
+  points.forEach(p=>{
+    if(state.chartType==='candlestick' && p.dataset.label==='価格') return;
+    html += `<span class="hb-item">${p.dataset.label}: ${fmtPrice(p.parsed.y)}</span>`;
+  });
+  bar.innerHTML = html;
+  bar.classList.add('active');
 }
 
 // 現在値を示す横破線（価格チャート用、外部プラグインなしで描画）
@@ -2514,6 +2564,7 @@ function render(){
     <div class="panel" id="sec-chart">
       <div class="section-title">価格チャート${showProj ? `＋統計的シナリオ予測（${periodLabel(dispN)} + 今後${state.projDays}日）` : `（${periodLabel(dispN)}）`}</div>
       ${intervalAutoFallback ? `<div class="info-banner">この銘柄は日足の取得可能なデータが少ないため、自動的に「1時間足・全期間」表示に切り替えました。</div>` : ''}
+      <div class="chart-hover-bar" id="priceHoverBar"></div>
       <div class="chart-box"><canvas id="priceChart"></canvas></div>
       <div class="legend-row">
         <button class="leg leg-price ${state.seriesVisible.price?'':'off'}" data-series="price" onclick="toggleSeries('price')">${state.chartType==='candlestick' ? 'ローソク足' : '価格'}</button>
@@ -2676,14 +2727,7 @@ function render(){
       plugins:{
         legend:{display:false},
         currentValueLine:{ value:lastPrice, label:'現在 '+fmtPrice(lastPrice), color:'#2A2420' },
-        tooltip: tooltipTheme((item)=>`${item.dataset.label}: ${fmtPrice(item.parsed.y)}`, {
-          afterBody: (items)=>{
-            if(state.chartType!=='candlestick' || !items.length) return [];
-            const d = ohlcData[items[0].dataIndex];
-            if(!d || d.o==null) return [];
-            return [`始値 ${fmtPrice(d.o)}　高値 ${fmtPrice(d.h)}`, `安値 ${fmtPrice(d.l)}　終値 ${fmtPrice(d.c)}`];
-          }
-        }),
+        tooltip:{ enabled:false, external: updatePriceHoverBar },
         zoom:{
           pan:{ enabled:true, mode:'x', onPanComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
           zoom:{ wheel:{enabled:true}, pinch:{enabled:true}, mode:'x', onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
