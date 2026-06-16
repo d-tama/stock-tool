@@ -831,6 +831,7 @@
 
   /* 市場心理・出来高・指値の目安：左列(心理/出来高 縦積み) ＋ 右列(指値) */
   .info-band{display:flex; flex-direction:column; gap:26px;}
+  @media (max-width:1023px){ .info-band{margin-bottom:26px;} }
   .info-band .panel{margin-bottom:0;}
   .info-col-left{display:flex; flex-direction:column; gap:26px; min-width:0;}
   @media (min-width:760px){
@@ -838,7 +839,8 @@
     /* 左列(心理+出来高)=2 : 右列(指値)=1 */
     .info-col-left{flex:2 1 0;}
     /* 出来高パネルを下端まで伸ばし、右列(指値の目安)と下端を揃える */
-    .info-col-left > .panel:last-child{flex:1 1 auto;}
+    .info-col-left > .panel:last-child{flex:1 1 auto; display:flex; flex-direction:column;}
+    .info-col-left > .panel:last-child .chart-box{flex:1 1 auto; min-height:120px;}
     .info-band > #sec-limit{
       flex:1 1 0;
       min-width:0;
@@ -1407,6 +1409,34 @@ function onChartScrubber(){
 
 function onSubScrubber(input){
   syncAllScrubbers(parseInt(input.value));
+}
+
+function showCompareScrubberBar(idx){
+  const bar = document.getElementById('compareHoverBar');
+  if(!bar || !compareChartInst) return;
+  const label = compareChartInst.data.labels[idx] || '';
+  let html = `<span class="hb-date">${label}</span>`;
+  compareChartInst.data.datasets.forEach((ds,di)=>{
+    if(compareChartInst.getDatasetMeta(di).hidden) return;
+    const v = ds.data[idx];
+    if(v==null || isNaN(v)) return;
+    const bc = typeof ds.borderColor==='string' ? ds.borderColor : '#C8BFB4';
+    html += `<span class="hb-item"><span class="hb-dot" style="background:${bc}"></span>${ds.label}: ${v>=0?'+':''}${v.toFixed(2)}%</span>`;
+  });
+  bar.innerHTML = html;
+  bar.classList.add('active');
+  const activeElements = compareChartInst.data.datasets
+    .map((_,di)=>({datasetIndex:di, index:idx}))
+    .filter(e=>{ const v=compareChartInst.data.datasets[e.datasetIndex].data[e.index]; return v!=null&&!isNaN(v); });
+  compareChartInst.setActiveElements(activeElements);
+  compareChartInst.tooltip.setActiveElements(activeElements, {x:0,y:0});
+  compareChartInst.update('none');
+}
+
+function onCompareScrubber(){
+  const s = document.getElementById('compareScrubber');
+  if(!s) return;
+  showCompareScrubberBar(parseInt(s.value));
 }
 
 function updateSubChartBars(idx){
@@ -2124,7 +2154,9 @@ function renderCompare(){
         <span class="ctrl-label">現在の銘柄・ウォッチリスト</span>
       </div>
       <div class="compare-chips">${extraChips}</div>` : ''}
-      <div class="chart-box" style="margin-top:16px;"><canvas id="compareChart"></canvas></div>
+      ${isTouchOnly ? '<div class="chart-hover-bar touch-bar" id="compareHoverBar" style="margin-top:12px;"></div>' : ''}
+      <div class="chart-box" style="margin-top:${isTouchOnly?'0':'16px'};"><canvas id="compareChart"></canvas></div>
+      ${isTouchOnly ? `<div class="chart-scrubber-wrap touch-scrubber"><span class="chart-scrubber-label">◀</span><input type="range" id="compareScrubber" min="0" max="0" value="0" oninput="onCompareScrubber()"><span class="chart-scrubber-label">▶</span></div>` : ''}
       <div class="scenario-note">
         各銘柄の期間開始時点を0%とした変化率を比較しています。市場ごとに休場日が異なるため、日付が数日ずれる場合があります（直近日は揃えて表示しています）。最大6銘柄まで選択できます。
       </div>
@@ -2198,6 +2230,10 @@ async function loadCompareChart(){
       }
     }
   });
+  if(isTouchOnly){
+    const s = document.getElementById('compareScrubber');
+    if(s){ s.min = 0; s.max = labels.length - 1; s.value = labels.length - 1; }
+  }
 }
 
 function renderControls(){
@@ -2861,7 +2897,7 @@ function render(){
     ${fngPanelHTML}
 
     <div class="panel" id="sec-volume">
-      <div class="section-title">出来高（${periodLabel(dispN)}）</div>
+      <div class="section-title">出来高（${periodLabel(dispN)}）${infoTip('一定期間内に売買が成立した株数の合計。価格の動きに出来高が伴っているかどうかでトレンドの信頼性を確認できます。出来高を伴いながら価格が上昇する場合は強い買い圧力のサイン、出来高が少ない中での価格変動は「だまし」の可能性があります。')}</div>
       ${hasVolume ? `
         ${isTouchOnly ? '<div class="chart-hover-bar touch-bar" id="volumeHoverBar"></div>' : ''}
         <div class="chart-box small"><canvas id="volumeChart"></canvas></div>
