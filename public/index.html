@@ -729,8 +729,9 @@
     margin-bottom:12px;
   }
 
-  /* チャートホバー時の値表示バー（チャートに重ならない固定位置表示） */
+  /* チャートホバー時の値表示バー（スマホ：チャートに重ならない固定位置表示） */
   .chart-hover-bar{
+    /* デフォルトはスペースなし（PC用、displayはJSで制御） */
     display:none;
     font-family:'JetBrains Mono', monospace;
     font-size:11px;
@@ -739,14 +740,17 @@
     border-radius:5px;
     padding:5px 10px;
     margin-bottom:6px;
-    line-height:1.8;
     flex-wrap:wrap;
-    gap:0 12px;
-    align-items:baseline;
+    gap:2px 10px;
+    align-items:center;
+    min-height:30px;
   }
-  .chart-hover-bar.active{ display:flex; }
-  .chart-hover-bar .hb-date{ color:var(--gold); font-size:10.5px; margin-right:4px; flex-shrink:0; }
-  .chart-hover-bar .hb-item{ white-space:nowrap; font-size:11px; }
+  /* スマホ用：常にスペースを確保してガクッとしないようにvisibilityで制御 */
+  .chart-hover-bar.touch-bar{ display:flex; visibility:hidden; }
+  .chart-hover-bar.touch-bar.active{ visibility:visible; }
+  .chart-hover-bar .hb-date{ color:var(--gold); font-size:10.5px; margin-right:2px; flex-shrink:0; }
+  .chart-hover-bar .hb-item{ white-space:nowrap; font-size:11px; display:inline-flex; align-items:center; gap:3px; }
+  .chart-hover-bar .hb-dot{ display:inline-block; width:7px; height:7px; border-radius:1px; flex-shrink:0; }
 
   .disclaimer{
     border-top:1px solid var(--line);
@@ -895,6 +899,9 @@ const searchResults = document.getElementById('searchResults');
 const watchlistBox = document.getElementById('watchlistPanel');
 const comparePanelBox = document.getElementById('comparePanel');
 const navBox = document.getElementById('quicknav');
+
+// タッチ専用デバイス（スマホ等）の判定（PCはtooltip、スマホはホバーバーに切り替え）
+const isTouchOnly = window.matchMedia('(hover: none)').matches;
 
 // Chart.js インスタンス管理（再描画時に破棄してリーク・警告を防ぐ）
 let mainCharts = [];
@@ -1254,19 +1261,24 @@ function updatePriceHoverBar(context){
   const points = tooltip.dataPoints.filter(p=>
     p.parsed.y !== null && !isNaN(p.parsed.y) && !p.dataset.label.startsWith('_')
   );
+  // 暗背景で見えにくい暗色（価格線のデフォルト色）は明るい色に置換
+  const dotColor = c => (c === '#2A2420' || c === 'transparent') ? '#C8BFB4' : c;
   let html = `<span class="hb-date">${title}</span>`;
   if(state.chartType==='candlestick' && chart.candlestickData){
     const d = chart.candlestickData[tooltip.dataPoints[0]?.dataIndex];
     if(d && d.o!=null){
-      html += `<span class="hb-item">始値 ${fmtPrice(d.o)}</span>`;
-      html += `<span class="hb-item">高値 ${fmtPrice(d.h)}</span>`;
-      html += `<span class="hb-item">安値 ${fmtPrice(d.l)}</span>`;
-      html += `<span class="hb-item">終値 ${fmtPrice(d.c)}</span>`;
+      const up = d.c >= d.o;
+      const cc = up ? '#5B9B9A' : '#E07060';
+      html += `<span class="hb-item"><span class="hb-dot" style="background:${cc}"></span>始値 ${fmtPrice(d.o)}</span>`;
+      html += `<span class="hb-item"><span class="hb-dot" style="background:${cc}"></span>高値 ${fmtPrice(d.h)}</span>`;
+      html += `<span class="hb-item"><span class="hb-dot" style="background:${cc}"></span>安値 ${fmtPrice(d.l)}</span>`;
+      html += `<span class="hb-item"><span class="hb-dot" style="background:${cc}"></span>終値 ${fmtPrice(d.c)}</span>`;
     }
   }
   points.forEach(p=>{
     if(state.chartType==='candlestick' && p.dataset.label==='価格') return;
-    html += `<span class="hb-item">${p.dataset.label}: ${fmtPrice(p.parsed.y)}</span>`;
+    const dc = dotColor(p.dataset.borderColor);
+    html += `<span class="hb-item"><span class="hb-dot" style="background:${dc}"></span>${p.dataset.label}: ${fmtPrice(p.parsed.y)}</span>`;
   });
   bar.innerHTML = html;
   bar.classList.add('active');
@@ -2564,7 +2576,7 @@ function render(){
     <div class="panel" id="sec-chart">
       <div class="section-title">価格チャート${showProj ? `＋統計的シナリオ予測（${periodLabel(dispN)} + 今後${state.projDays}日）` : `（${periodLabel(dispN)}）`}</div>
       ${intervalAutoFallback ? `<div class="info-banner">この銘柄は日足の取得可能なデータが少ないため、自動的に「1時間足・全期間」表示に切り替えました。</div>` : ''}
-      <div class="chart-hover-bar" id="priceHoverBar"></div>
+      <div class="chart-hover-bar${isTouchOnly?' touch-bar':''}" id="priceHoverBar"></div>
       <div class="chart-box"><canvas id="priceChart"></canvas></div>
       <div class="legend-row">
         <button class="leg leg-price ${state.seriesVisible.price?'':'off'}" data-series="price" onclick="toggleSeries('price')">${state.chartType==='candlestick' ? 'ローソク足' : '価格'}</button>
@@ -2727,7 +2739,16 @@ function render(){
       plugins:{
         legend:{display:false},
         currentValueLine:{ value:lastPrice, label:'現在 '+fmtPrice(lastPrice), color:'#2A2420' },
-        tooltip:{ enabled:false, external: updatePriceHoverBar },
+        tooltip: isTouchOnly
+          ? { enabled:false, external: updatePriceHoverBar }
+          : tooltipTheme((item)=>`${item.dataset.label}: ${fmtPrice(item.parsed.y)}`, {
+              afterBody: (items)=>{
+                if(state.chartType!=='candlestick' || !items.length) return [];
+                const d = ohlcData[items[0].dataIndex];
+                if(!d || d.o==null) return [];
+                return [`始値 ${fmtPrice(d.o)}　高値 ${fmtPrice(d.h)}`, `安値 ${fmtPrice(d.l)}　終値 ${fmtPrice(d.c)}`];
+              }
+            }),
         zoom:{
           pan:{ enabled:true, mode:'x', onPanComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
           zoom:{ wheel:{enabled:true}, pinch:{enabled:true}, mode:'x', onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
@@ -2771,7 +2792,7 @@ function render(){
       interaction: HOVER_INTERACTION,
       plugins:{
         legend:{display:false},
-        tooltip: tooltipTheme((item)=>`RSI: ${item.parsed.y.toFixed(1)}`),
+        tooltip: isTouchOnly ? {enabled:false} : tooltipTheme((item)=>`RSI: ${item.parsed.y.toFixed(1)}`),
         zoom: subZoomPlugin
       },
       scales:{
@@ -2797,7 +2818,7 @@ function render(){
       interaction: HOVER_INTERACTION,
       plugins:{
         legend:{display:false},
-        tooltip: tooltipTheme((item)=>`${item.dataset.label}: ${item.parsed.y!=null?item.parsed.y.toFixed(2):'--'}`),
+        tooltip: isTouchOnly ? {enabled:false} : tooltipTheme((item)=>`${item.dataset.label}: ${item.parsed.y!=null?item.parsed.y.toFixed(2):'--'}`),
         zoom: subZoomPlugin
       },
       scales:{
@@ -2829,7 +2850,7 @@ function render(){
         interaction: HOVER_INTERACTION,
         plugins:{
           legend:{display:false},
-          tooltip: tooltipTheme((item)=>{
+          tooltip: isTouchOnly ? {enabled:false} : tooltipTheme((item)=>{
             const v=item.parsed.y;
             let s;
             if(v>=1e8) s=(v/1e8).toFixed(2)+'億';
