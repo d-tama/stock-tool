@@ -58,8 +58,8 @@ app.get('/api/chart', async (req, res) => {
 
 // 日本語ニックネーム → シンボルのマッピング（Yahoo Finance に登録のない俗称に対応）
 const NICKNAME_ALIASES = {
-  'オルカン':       { symbol: 'ACWI',    name: 'オルカン / 全世界株式(オール・カントリー)', type: 'ETF',  exchange: 'NASDAQ' },
-  'オールカントリー': { symbol: 'ACWI',   name: 'オルカン / 全世界株式(オール・カントリー)', type: 'ETF',  exchange: 'NASDAQ' },
+  'オルカン':       { symbol: 'ACWI',    name: 'オルカン', type: 'ETF',  exchange: 'NASDAQ' },
+  'オールカントリー': { symbol: 'ACWI',   name: 'オルカン', type: 'ETF',  exchange: 'NASDAQ' },
   'レバナス':       { symbol: '2869.T',  name: 'iFreeレバレッジ NASDAQ100 ETF',            type: 'ETF',  exchange: '東証' },
   'ナスダック':     { symbol: '^IXIC',   name: 'NASDAQ総合指数',                            type: '指数', exchange: '' },
   'ゴールド':       { symbol: 'GC=F',    name: 'ゴールド先物',                              type: '商品', exchange: 'COMEX' },
