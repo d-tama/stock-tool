@@ -695,9 +695,9 @@
   /* Watch button */
   .watch-btn{
     margin-top:6px;
-    border:1px solid var(--line);
+    border:1px solid var(--gold);
     background:transparent;
-    color:var(--ink-soft);
+    color:var(--ink);
     padding:4px 12px;
     font-size:11px;
     letter-spacing:.1em;
@@ -711,7 +711,11 @@
     color:#1A1714;
     border-color:var(--gold);
   }
-  .watch-btn:hover:not(.active){border-color:var(--ink-soft); color:var(--ink);}
+  .watch-btn:hover:not(.active){background:color-mix(in srgb,var(--gold) 12%,transparent);}
+  .watch-empty-hint{
+    font-size:12px; color:var(--ink-soft); text-align:center;
+    padding:10px 0 4px; opacity:.75;
+  }
   .watch-btn:focus-visible{outline:2px solid var(--indigo); outline-offset:2px;}
 
   /* Watchlist panel */
@@ -2437,7 +2441,7 @@ function removeWatch(ev, symbol){
 
 function renderWatchlist(){
   if(!watchlist.length){
-    watchlistBox.innerHTML = '';
+    watchlistBox.innerHTML = '<p class="watch-empty-hint">☆ 銘柄ページ上部のボタンでウォッチリストに追加できます</p>';
     return;
   }
   watchlistBox.innerHTML = `
