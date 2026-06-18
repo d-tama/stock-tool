@@ -2906,7 +2906,8 @@ function renderCompare(){
   const periodPills = COMPARE_PERIOD_OPTIONS.map(o=>
     `<button class="pill ${o.days===state.comparePeriod?'active':''}" onclick="setComparePeriod(${o.days})">${o.label}</button>`
   ).join('');
-  const customPeriodInput = `<button class="pill" onclick="openNumSheet('setComparePeriod')">任意</button>`;
+  const compareIsCustom = !COMPARE_PERIOD_OPTIONS.some(p => p.days === state.comparePeriod);
+  const customPeriodInput = `<button class="pill${compareIsCustom ? ' active' : ''}" onclick="openNumSheet('setComparePeriod')">${compareIsCustom ? `${state.comparePeriod}日` : '任意'}</button>`;
 
   const compareChip = p=>{
     const idx = state.compareSymbols.indexOf(p.symbol);
@@ -3036,8 +3037,11 @@ function renderControls(){
   ).join('');
 
   const N = fullTimestamps.length;
-  const customInput = (current, max, setter, unit) =>
-    `<button class="pill" onclick="openNumSheet('${setter}')">任意</button>`;
+  const customInput = (current, max, setter) => {
+    const def = NUM_SHEET_DEFS[setter]();
+    const isCustom = !def.presets.some(p => p.days === current);
+    return `<button class="pill${isCustom ? ' active' : ''}" onclick="openNumSheet('${setter}')">${isCustom ? `${current}${def.unit}` : '任意'}</button>`;
+  };
 
   const periodUnit = state.interval==='1wk' ? '週（任意）' : state.interval==='1mo' ? 'か月（任意）' : isIntraday() ? '本（任意）' : '日（任意）';
 
@@ -3735,7 +3739,9 @@ function render(){
       <div class="ctrl-row" style="margin-top:10px;">
         <span class="ctrl-label">算出期間</span>
         ${volLookbackOptions().map(o=>`<button class="pill ${o.days===state.volLookback?'active':''}" onclick="setVolLookback(${o.days})">${o.label}</button>`).join('')}
-        <button class="pill" onclick="openNumSheet('setVolLookback')">任意</button>
+        ${!volLookbackOptions().some(p=>p.days===state.volLookback)
+          ? `<button class="pill active" onclick="openNumSheet('setVolLookback')">${state.volLookback}日</button>`
+          : `<button class="pill" onclick="openNumSheet('setVolLookback')">任意</button>`}
       </div>
       <div class="scenario-note">
         σ（シグマ）は上記の「算出期間」（${state.volLookback}日）から計算した1日あたりの変動率です。±1σ・±2σは、過去と同程度の変動が続いた場合に統計的に到達しうる価格の目安であり、実際にその価格まで動く・約定する保証はありません。指値の発注は、ご自身の判断と責任で行ってください。
