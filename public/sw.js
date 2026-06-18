@@ -1,4 +1,4 @@
-const CACHE = 'mkt-v2';
+const CACHE = 'mkt-v3';
 const STATIC = [
   '/',
   '/index.html',

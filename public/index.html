@@ -2507,23 +2507,31 @@ function setupMaSheetSwipe(){
   if(!panel) return;
 
   // スマホ: touch イベント（passive:false で preventDefault 可能）
-  let sy = null, sx = null;
+  let sy = null, sx = null, initiated = false;
   panel.addEventListener('touchstart', e => {
     sy = e.touches[0].clientY;
     sx = e.touches[0].clientX;
+    initiated = false;
     panel.style.transition = 'none';
   }, {passive:true});
   panel.addEventListener('touchmove', e => {
     if(sy === null) return;
     const dy = e.touches[0].clientY - sy;
     const dx = Math.abs(e.touches[0].clientX - sx);
-    if(dy > 0 && dy > dx){ e.preventDefault(); panel.style.transform = `translateY(${dy}px)`; }
+    if(!initiated){
+      if(Math.abs(dy) < 8) return;               // 動きが小さすぎる
+      if(dy < 0 || dx > dy){ sy = null; return; } // 上方向・横方向はキャンセル
+      initiated = true;
+    }
+    e.preventDefault();
+    panel.style.transform = `translateY(${dy}px)`;
   }, {passive:false});
   panel.addEventListener('touchend', e => {
     if(sy === null) return;
     const dy = e.changedTouches[0].clientY - sy;
-    sy = null; sx = null;
-    if(dy > 60){
+    const wasInitiated = initiated;
+    sy = null; sx = null; initiated = false;
+    if(wasInitiated && dy > 40){
       panel.style.transition = 'transform 0.2s ease';
       panel.style.transform = 'translateY(100%)';
       setTimeout(() => closeMaSheet(), 180);
