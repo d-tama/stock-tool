@@ -67,6 +67,7 @@ const NICKNAME_ALIASES = {
   '原油':           { symbol: 'CL=F',    name: '原油先物(WTI)',                             type: '商品', exchange: 'NYMEX' },
   'ドル円':         { symbol: 'JPY=X',   name: 'ドル/円',                                  type: '為替', exchange: '' },
   'ビットコイン':   { symbol: 'BTC-JPY', name: 'ビットコイン / BTC/JPY',                   type: '暗号資産', exchange: '' },
+  'キオクシア':     { symbol: '285A.T',  name: 'キオクシアホールディングス',               type: '資本',     exchange: '東京証券取引所' },
 };
 
 // 銘柄検索
