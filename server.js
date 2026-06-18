@@ -56,25 +56,61 @@ app.get('/api/chart', async (req, res) => {
   }
 });
 
+// 日本語ニックネーム → シンボルのマッピング（Yahoo Finance に登録のない俗称に対応）
+const NICKNAME_ALIASES = {
+  'オルカン':       { symbol: 'ACWI',    name: 'オルカン / 全世界株式(オール・カントリー)', type: 'ETF',  exchange: 'NASDAQ' },
+  'オールカントリー': { symbol: 'ACWI',   name: 'オルカン / 全世界株式(オール・カントリー)', type: 'ETF',  exchange: 'NASDAQ' },
+  'レバナス':       { symbol: '2869.T',  name: 'iFreeレバレッジ NASDAQ100 ETF',            type: 'ETF',  exchange: '東証' },
+  'ナスダック':     { symbol: '^IXIC',   name: 'NASDAQ総合指数',                            type: '指数', exchange: '' },
+  'ゴールド':       { symbol: 'GC=F',    name: 'ゴールド先物',                              type: '商品', exchange: 'COMEX' },
+  '日経':           { symbol: '^N225',   name: '日経平均株価',                              type: '指数', exchange: '' },
+  '原油':           { symbol: 'CL=F',    name: '原油先物(WTI)',                             type: '商品', exchange: 'NYMEX' },
+  'ドル円':         { symbol: 'JPY=X',   name: 'ドル/円',                                  type: '為替', exchange: '' },
+  'ビットコイン':   { symbol: 'BTC-JPY', name: 'ビットコイン / BTC/JPY',                   type: '暗号資産', exchange: '' },
+};
+
 // 銘柄検索
 app.get('/api/search', async (req, res) => {
   const { q } = req.query;
   if (!q) return res.status(400).json({ error: 'q is required' });
 
   try {
-    const url = `https://query1.finance.yahoo.com/v6/finance/autocomplete?region=JP&lang=ja-JP&query=${encodeURIComponent(q)}`;
-    const r = await fetch(url, { headers: YF_HEADERS });
-    if (!r.ok) return res.status(r.status).json({ error: `Yahoo Finance HTTP ${r.status}` });
-    const json = await r.json();
-    const quotes = (json.ResultSet?.Result || [])
-      .filter(item => item.symbol)
-      .slice(0, 10)
-      .map(item => ({
-        symbol: item.symbol,
-        name: item.name || item.symbol,
-        type: item.typeDisp,
-        exchange: item.exchDisp,
-      }));
+    // ニックネームマッピング確認（クエリがキーを含む、またはキーがクエリを含む）
+    const aliasHits = Object.entries(NICKNAME_ALIASES)
+      .filter(([key]) => q.includes(key) || key.includes(q))
+      .map(([, v]) => v);
+
+    const yfSearch = async (query) => {
+      const url = `https://query1.finance.yahoo.com/v6/finance/autocomplete?region=JP&lang=ja-JP&query=${encodeURIComponent(query)}`;
+      const r = await fetch(url, { headers: YF_HEADERS });
+      if (!r.ok) return [];
+      const json = await r.json();
+      return (json.ResultSet?.Result || [])
+        .filter(item => item.symbol)
+        .map(item => ({
+          symbol: item.symbol,
+          name: item.name || item.symbol,
+          type: item.typeDisp || null,
+          exchange: item.exchDisp || null,
+        }));
+    };
+
+    let apiQuotes = await yfSearch(q);
+
+    // 日本語マルチ文字クエリが空の場合は先頭1文字でフォールバック
+    // 例: "任天堂" → [] → "任" → [任天堂, ...]
+    const hasJP = /[぀-鿿]/.test(q);
+    if (apiQuotes.length === 0 && hasJP && q.length > 1) {
+      apiQuotes = await yfSearch(q[0]);
+    }
+
+    // ニックネーム結果を先頭に、重複シンボルを除外してマージ
+    const seen = new Set(aliasHits.map(r => r.symbol));
+    const quotes = [
+      ...aliasHits,
+      ...apiQuotes.filter(r => !seen.has(r.symbol)),
+    ].slice(0, 10);
+
     res.json({ quotes });
   } catch (err) {
     res.status(500).json({ error: err.message });

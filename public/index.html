@@ -12,14 +12,23 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="観測所">
-<meta name="theme-color" content="#2A2420">
+<meta name="theme-color" content="#F4EFE3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1720" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
+<script>
+(function(){
+  var ov = localStorage.getItem('themeOverride');
+  var sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = ov || sys;
+})();
+</script>
 <style>
   :root{
+    color-scheme: light dark;
     --paper:#F4EFE3;
     --paper-deep:#EAE1CC;
     --ink:#2A2420;
@@ -28,7 +37,45 @@
     --indigo:#355C5B;
     --gold:#C8A24A;
     --line:#D8CFC0;
+    --panel-bg:#F8F5ED;
+    --surface: rgba(255,255,255,0.40);
+    --surface-btn: rgba(255,255,255,0.50);
+    --surface-card: rgba(255,255,255,0.45);
+    --paper-texture: repeating-linear-gradient(0deg, rgba(0,0,0,0.012) 0px, rgba(0,0,0,0.012) 1px, transparent 1px, transparent 3px);
   }
+  :root[data-theme="dark"] {
+    --paper: #0F1720;
+    --paper-deep: #090F16;
+    --ink: #C8D8E8;
+    --ink-soft: #8AADC8;
+    --vermillion: #DC5C5C;
+    --indigo: #4AAECE;
+    --gold: #C0A840;
+    --line: rgba(255,255,255,0.13);
+    --panel-bg: #162030;
+    --surface: rgba(255,255,255,0.06);
+    --surface-btn: rgba(255,255,255,0.09);
+    --surface-card: rgba(255,255,255,0.07);
+    --paper-texture: repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);
+    --scroll-shadow:
+      linear-gradient(to right, var(--panel-bg) 0%, transparent 100%) left  / 28px 100% local  no-repeat,
+      linear-gradient(to left,  var(--panel-bg) 0%, transparent 100%) right / 28px 100% local  no-repeat,
+      linear-gradient(to right, rgba(0,0,0,.3) 0%, transparent 100%) left  / 20px 100% scroll no-repeat,
+      linear-gradient(to left,  rgba(0,0,0,.3) 0%, transparent 100%) right / 20px 100% scroll no-repeat;
+  }
+  [data-theme="dark"] .panel {
+    border-color: rgba(255,255,255,0.09);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  [data-theme="dark"] .masthead { border-bottom-color: rgba(255,255,255,0.12); }
+  [data-theme="dark"] .chip.buy,  [data-theme="dark"] .tag.buy  { background: rgba(74,174,206,0.20); }
+  [data-theme="dark"] .chip.sell, [data-theme="dark"] .tag.sell { background: rgba(220,92,92,0.20); }
+  [data-theme="dark"] .chip.neutral, [data-theme="dark"] .tag.neutral { background: rgba(96,120,144,0.18); }
+  [data-theme="dark"] .stamp { background: rgba(255,255,255,0.06); opacity:1; mix-blend-mode: screen; }
+  [data-theme="dark"] .watch-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.09); }
+  [data-theme="dark"] .watch-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+  [data-theme="dark"] .watch-card.trend-up { border-left-color: #52C878; }
+  [data-theme="dark"] .ctrl-label { background: var(--panel-bg); }
   *{box-sizing:border-box;}
   html{overflow-x:clip;}
   body{
@@ -37,13 +84,23 @@
     color:var(--ink);
     font-family:'Zen Kaku Gothic New', sans-serif;
     overflow-x:clip;
-    background-image:
-      repeating-linear-gradient(0deg, rgba(0,0,0,0.012) 0px, rgba(0,0,0,0.012) 1px, transparent 1px, transparent 3px);
+    background-image: var(--paper-texture);
   }
   .wrap{
     max-width:1280px;
     margin:0 auto;
     padding:24px clamp(14px, 2vw, 32px) 64px;
+  }
+  @media(max-width:1023px){
+    .wrap{ padding-left:6px; padding-right:6px; }
+  }
+
+  /* ---- スマホ横スクロール共通 ---- */
+  :root{ --scroll-shadow:
+    linear-gradient(to right, var(--panel-bg) 0%, transparent 100%) left  / 28px 100% local  no-repeat,
+    linear-gradient(to left,  var(--panel-bg) 0%, transparent 100%) right / 28px 100% local  no-repeat,
+    linear-gradient(to right, rgba(0,0,0,.07) 0%, transparent 100%) left  / 20px 100% scroll no-repeat,
+    linear-gradient(to left,  rgba(0,0,0,.07) 0%, transparent 100%) right / 20px 100% scroll no-repeat;
   }
   .masthead{
     border-bottom:3px double var(--ink);
@@ -102,6 +159,7 @@
     animation:livePulse 1.6s ease-in-out infinite;
   }
   @keyframes livePulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+  .delay-note{ font-size:10px; opacity:0.6; margin-left:4px; }
 
   /* Quick navigation */
   .quicknav{
@@ -112,7 +170,7 @@
     gap:5px;
     flex-wrap:wrap;
     align-items:center;
-    background:rgba(244,239,227,0.94);
+    background:color-mix(in srgb, var(--paper) 94%, transparent);
     backdrop-filter:blur(6px);
     -webkit-backdrop-filter:blur(6px);
     border-bottom:1px solid var(--line);
@@ -128,7 +186,7 @@
     border-radius:13px;
     letter-spacing:.06em;
     white-space:nowrap;
-    background:rgba(255,255,255,0.5);
+    background:var(--surface-btn);
     transition:background .12s, color .12s, border-color .12s;
   }
   .quicknav a:hover{border-color:var(--ink-soft); color:var(--ink);}
@@ -154,7 +212,7 @@
     flex:1;
     min-width:160px;
     border:1px solid var(--line);
-    background:rgba(255,255,255,0.5);
+    background:var(--surface-btn);
     padding:8px 12px;
     font-size:13px;
     font-family:'Zen Kaku Gothic New', sans-serif;
@@ -177,7 +235,7 @@
   .search-results{
     margin-bottom:14px;
     border:1px solid var(--line);
-    background:rgba(255,255,255,0.5);
+    background:var(--surface-btn);
     display:none;
   }
   .search-results.show{display:block;}
@@ -211,7 +269,7 @@
     flex-direction:column;
     margin-bottom:26px;
     padding:16px 18px;
-    background:rgba(255,255,255,0.35);
+    background:var(--panel-bg);
     border:1px solid var(--line);
     border-radius:6px;
   }
@@ -223,6 +281,45 @@
     padding:10px 0;
     border-bottom:1px dashed var(--line);
   }
+  @media(max-width:1023px){
+    .control-group{
+      flex-wrap:nowrap;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+      padding-right:8px;
+      /* scroll shadow: 両端にフェード影 */
+      background:
+        linear-gradient(to right, var(--panel-bg) 0%, transparent 100%) left / 28px 100% local no-repeat,
+        linear-gradient(to left,  var(--panel-bg) 0%, transparent 100%) right / 28px 100% local no-repeat,
+        linear-gradient(to right, rgba(0,0,0,.07) 0%, transparent 100%) left / 20px 100% scroll no-repeat,
+        linear-gradient(to left,  rgba(0,0,0,.07) 0%, transparent 100%) right / 20px 100% scroll no-repeat,
+        var(--panel-bg);
+    }
+    .control-group::-webkit-scrollbar{display:none;}
+    .control-group .ctrl-label{
+      position:sticky;
+      left:0;
+      background:var(--panel-bg);
+      z-index:1;
+      padding-right:6px;
+    }
+  }
+  /* 指値パネル内の算出期間行 */
+  .ctrl-row{
+    display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+  }
+  @media(max-width:1023px){
+    .ctrl-row{
+      flex-wrap:nowrap; overflow-x:auto;
+      -webkit-overflow-scrolling:touch; scrollbar-width:none;
+      background: var(--scroll-shadow), var(--panel-bg);
+    }
+    .ctrl-row::-webkit-scrollbar{display:none;}
+    .ctrl-row > *{flex-shrink:0;}
+    .ctrl-row .ctrl-label{position:sticky; left:0; background:var(--panel-bg); z-index:1; padding-right:6px;}
+  }
+
   .control-group:first-child{
     padding-top:0;
   }
@@ -247,6 +344,8 @@
     cursor:pointer;
     font-family:'JetBrains Mono', monospace;
     border-radius:14px;
+    white-space:nowrap;
+    flex-shrink:0;
     transition:background .12s, color .12s, border-color .12s;
   }
   .pill.active{
@@ -259,6 +358,8 @@
     color:var(--ink);
   }
   .pill:focus-visible{outline:2px solid var(--indigo); outline-offset:2px;}
+  [data-theme="dark"] .pill:not(.active){ border-color: rgba(255,255,255,0.18); }
+  [data-theme="dark"] .pill:hover:not(.active){ border-color: rgba(255,255,255,0.35); }
   .pill.wide{
     font-family:'Zen Kaku Gothic New', sans-serif;
     padding:6px 15px;
@@ -273,7 +374,7 @@
     padding:4px 10px;
     border:1px solid var(--line);
     border-radius:14px;
-    background:rgba(255,255,255,0.5);
+    background:var(--surface-btn);
   }
   .custom-input input{
     width:58px;
@@ -308,13 +409,16 @@
     padding-bottom:8px;
     margin:0 0 14px;
   }
-  .panel{
-    background:rgba(255,255,255,0.35);
+  .panel, .skel-panel{
+    background:var(--panel-bg);
     border:1px solid var(--line);
     border-radius:6px;
     padding:20px;
     margin-bottom:26px;
-    box-shadow:0 1px 3px rgba(42,36,32,0.04);
+  }
+  .panel{ box-shadow:0 1px 3px rgba(42,36,32,0.04); }
+  @media(max-width:1023px){
+    .panel{ padding:14px 8px; }
   }
 
   /* Stamp */
@@ -408,7 +512,7 @@
     border:1px solid var(--line);
     border-radius:6px;
     padding:15px 17px;
-    background:rgba(255,255,255,0.45);
+    background:var(--surface-card);
     transition:box-shadow .12s, border-color .12s;
   }
   .card:hover{
@@ -553,6 +657,12 @@
     font-size:11px; color:var(--ink-soft); opacity:.7;
     margin-left:auto; white-space:nowrap;
   }
+  @media(max-width:1023px){
+    .legend-row-presets{ flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; background:var(--scroll-shadow); }
+    .legend-row-presets::-webkit-scrollbar{display:none;}
+    .legend-row-presets > *{ flex-shrink:0; }
+    .legend-row-presets .ctrl-label{ position:sticky; left:0; background:var(--panel-bg); z-index:1; padding-right:6px; }
+  }
 
   /* Fear & Greed gauge */
   .gauge-row{
@@ -598,7 +708,7 @@
   }
   .watch-btn.active{
     background:var(--gold);
-    color:var(--ink);
+    color:#1A1714;
     border-color:var(--gold);
   }
   .watch-btn:hover:not(.active){border-color:var(--ink-soft); color:var(--ink);}
@@ -613,29 +723,46 @@
   .watch-card{
     position:relative;
     border:1px solid var(--line);
+    border-left:3px solid var(--line);
     border-radius:6px;
-    padding:12px 14px;
-    background:rgba(255,255,255,0.45);
+    padding:10px 12px 10px 24px;
+    background:var(--surface-card);
     cursor:pointer;
-    transition:border-color .12s, box-shadow .12s;
+    transition:border-color .15s, box-shadow .12s;
   }
+  .watch-drag-handle{
+    position:absolute; top:0; bottom:0; left:0; width:20px;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--ink-soft); opacity:0.3; font-size:13px;
+    cursor:grab; touch-action:none; user-select:none;
+    border-right:1px solid var(--line);
+  }
+  .watch-card:hover .watch-drag-handle,
+  .watch-drag-handle:hover{ opacity:0.75; }
   .watch-card:hover{border-color:var(--ink-soft); box-shadow:0 2px 6px rgba(42,36,32,0.06);}
   .watch-card.active{border-color:var(--indigo); box-shadow:0 0 0 1px var(--indigo) inset;}
+  .watch-card.trend-up { border-left-color:#3C8C5A; }
+  .watch-card.trend-down { border-left-color:var(--vermillion); }
   .watch-card .watch-name{
-    font-size:12.5px;
+    font-size:12px;
     font-weight:700;
-    margin-bottom:6px;
+    margin-bottom:4px;
     padding-right:16px;
-    line-height:1.4;
+    line-height:1.35;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .watch-sparkline{
+    display:block; width:100%; height:36px;
+    margin:2px 0 6px;
   }
   .watch-card .watch-price{
     font-family:'JetBrains Mono', monospace;
-    font-size:16px;
+    font-size:15px;
     font-weight:700;
   }
   .watch-card .watch-chg{
     font-family:'JetBrains Mono', monospace;
-    font-size:12px;
+    font-size:11.5px;
     margin-top:2px;
     color:var(--ink-soft);
   }
@@ -645,6 +772,32 @@
     font-size:15px; line-height:1; cursor:pointer; padding:2px;
   }
   .watch-remove:hover{color:var(--vermillion);}
+  .watch-card[draggable="true"]{ cursor:grab; }
+  .watch-card[draggable="true"]:active{ cursor:grabbing; }
+  .watch-card.dragging{ opacity:0.35; cursor:grabbing; }
+  .watch-card.drag-over{ outline:2px solid var(--indigo); outline-offset:-1px; }
+  .theme-toggle {
+    flex-shrink:0; margin-left:auto;
+    width:28px; height:28px; border-radius:50%;
+    border:1px solid var(--line); background:var(--surface-btn);
+    cursor:pointer; font-size:15px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    transition:background .15s, border-color .15s, transform .1s;
+  }
+  .theme-toggle:hover { border-color:var(--ink-soft); transform:scale(1.08); }
+  @media(max-width:599px){
+    .watch-grid{
+      display:flex; flex-wrap:nowrap; overflow-x:auto;
+      gap:10px; padding-bottom:6px;
+      background: var(--scroll-shadow), var(--panel-bg);
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+    }
+    .watch-grid::-webkit-scrollbar{display:none;}
+    .watch-card{
+      flex:0 0 155px; min-width:155px;
+    }
+  }
 
   /* Compare panel */
   .compare-chips{display:flex; flex-wrap:wrap; gap:7px; margin-top:12px;}
@@ -660,6 +813,11 @@
   .compare-chip.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
   .compare-chip:hover:not(.active){border-color:var(--ink-soft); color:var(--ink);}
   .compare-chip:focus-visible{outline:2px solid var(--indigo); outline-offset:2px;}
+  @media(max-width:1023px){
+    .compare-chips{ flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; background:var(--scroll-shadow); padding-bottom:2px; }
+    .compare-chips::-webkit-scrollbar{display:none;}
+    .compare-chips > *{ flex-shrink:0; }
+  }
 
   /* Limit order table / fundamentals table */
   .limit-table{
@@ -702,7 +860,7 @@
   .bidask{display:flex; gap:12px;}
   .bidask-col{
     flex:1; border:1px solid var(--line); border-radius:6px;
-    padding:10px 12px; background:rgba(255,255,255,0.45);
+    padding:10px 12px; background:var(--surface-card);
   }
   .bidask-col.buy{border-left:3px solid var(--indigo);}
   .bidask-col.sell{border-left:3px solid var(--vermillion);}
@@ -746,8 +904,8 @@
     display:none;
     font-family:'JetBrains Mono', monospace;
     font-size:11px;
-    background:rgba(42,36,32,0.92);
-    color:#F4EFE3;
+    background:color-mix(in srgb, var(--ink) 92%, transparent);
+    color:var(--paper);
     border-radius:5px;
     padding:5px 10px;
     margin-bottom:6px;
@@ -759,7 +917,7 @@
   /* スマホ用：常にスペースを確保してガクッとしないようにvisibilityで制御 */
   .chart-hover-bar.touch-bar{ display:flex; visibility:hidden; }
   .chart-hover-bar.touch-bar.active{ visibility:visible; }
-  .chart-hover-bar .hb-date{ color:var(--gold); font-size:10.5px; margin-right:2px; flex-shrink:0; }
+  .chart-hover-bar .hb-date{ font-size:10.5px; margin-right:2px; flex-shrink:0; font-weight:700; opacity:1; }
   .chart-hover-bar .hb-item{ white-space:nowrap; font-size:11px; display:inline-flex; align-items:center; gap:3px; }
   .chart-hover-bar .hb-dot{ display:inline-block; width:7px; height:7px; border-radius:1px; flex-shrink:0; }
 
@@ -769,16 +927,70 @@
   .chart-scrubber-wrap input[type="range"]{
     flex:1; height:22px; accent-color:#C8A24A; cursor:pointer;
   }
-  .chart-scrubber-label{ font-family:'JetBrains Mono',monospace; font-size:10px; color:#6E6356; white-space:nowrap; }
+  .chart-scrubber-label{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-soft); white-space:nowrap; }
 
   /* 凡例内 MA日数インライン入力 */
   .ma-day-input{
-    width:30px; border:none; background:transparent; color:inherit;
-    font:inherit; font-size:10.5px; text-align:right; padding:0; outline:none;
+    width:2ch; border:none; background:transparent; color:inherit;
+    font:inherit; font-size:10.5px; text-align:left; padding:0; outline:none;
     -moz-appearance:textfield; appearance:textfield;
+    cursor:ew-resize;
   }
+  .ma-day-input:focus{ cursor:text; text-decoration:underline; text-decoration-style:dotted; }
   .ma-day-input::-webkit-inner-spin-button,
-  .ma-day-input::-webkit-outer-spin-button{ opacity:0.6; cursor:pointer; }
+  .ma-day-input::-webkit-outer-spin-button{ display:none; }
+
+  /* MA ボトムシート（スマホ専用） */
+  .ma-sheet-overlay{
+    display:none; position:fixed; inset:0; z-index:900;
+    background:rgba(0,0,0,0.45); -webkit-tap-highlight-color:transparent;
+  }
+  .ma-sheet-panel{
+    position:fixed; left:0; right:0; bottom:0; z-index:901;
+    max-width:440px; margin:0 auto;
+    background:var(--paper); border-top:1px solid var(--line);
+    border-radius:14px 14px 0 0;
+    padding:0 24px max(env(safe-area-inset-bottom,0px),20px);
+    transform:translateY(100%);
+    transition:transform 0.22s cubic-bezier(0.4,0,0.2,1);
+    box-shadow:0 -4px 28px rgba(0,0,0,0.22);
+  }
+  .ma-sheet-panel.open{ transform:translateY(0); }
+  @media(min-width:480px){
+    .ma-sheet-panel{ border-radius:14px 14px 0 0; border-left:1px solid var(--line); border-right:1px solid var(--line); }
+  }
+  .ma-sheet-handle{
+    width:36px; height:4px; border-radius:2px;
+    background:var(--line); margin:10px auto 14px;
+  }
+  .ma-sheet-title{
+    font-size:11px; color:var(--ink-soft); text-align:center; margin-bottom:6px;
+  }
+  .ma-sheet-value{
+    font-size:40px; font-weight:700; text-align:center; margin-bottom:14px;
+    font-family:'JetBrains Mono',monospace; color:var(--ink);
+  }
+  .ma-sheet-slider{
+    width:100%; height:44px; cursor:pointer; margin-bottom:8px;
+    accent-color:var(--indigo);
+  }
+  .ma-sheet-presets{
+    display:flex; gap:8px; justify-content:center; flex-wrap:wrap;
+    margin-bottom:16px;
+  }
+  .ma-sheet-preset{
+    padding:6px 14px; border-radius:20px; border:1px solid var(--line);
+    background:var(--surface-btn); color:var(--ink); font-size:13px;
+    cursor:pointer; font-family:'JetBrains Mono',monospace;
+  }
+  .ma-sheet-preset.active{
+    background:var(--indigo); color:#fff; border-color:var(--indigo);
+  }
+  .ma-sheet-done{
+    display:block; width:100%; padding:12px; margin-bottom:4px;
+    background:var(--indigo); color:#fff; border:none; border-radius:8px;
+    font-size:15px; font-weight:600; cursor:pointer;
+  }
 
   .disclaimer{
     border-top:1px solid var(--line);
@@ -878,7 +1090,16 @@
     /* 総合判定スタンプの行も縦積みで余裕を持たせる */
     .stamp-row{gap:14px;}
   }
+  /* ---- スケルトンローディング ---- */
+  @keyframes skelShimmer{0%{background-position:-400% 0}100%{background-position:400% 0}}
+  .skel{
+    background:linear-gradient(90deg,var(--paper-deep) 0%,var(--paper) 50%,var(--paper-deep) 100%);
+    background-size:200% 100%;
+    animation:skelShimmer 1.4s ease-in-out infinite;
+    border-radius:4px;
+  }
 </style>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{});});}</script>
 </head>
 <body>
 <div class="wrap">
@@ -915,7 +1136,7 @@
     <strong>このツールについて</strong><br>
     これは将来の価格を予測するものではありません。「総合判定スタンプ」とシグナルメーターは、移動平均線・RSI・MACD・ボリンジャーバンド・200日線との距離といった一般的なテクニカル指標を機械的なルールで集計した「現状の目安」であり、買い・売りのタイミングを保証するものではありません。ニュース・決算・マクロ経済の変化などは反映されていません。表示される判定は投資の勧誘・助言ではありません。購入・売却の判断は、ご自身で情報を確認したうえで、自己責任で行ってください。<br><br>
     <strong>データについて</strong><br>
-    価格データは Yahoo Finance の公開情報をサーバー経由で取得しています。日足・週足・月足・1時間足に対応していますが、銘柄や取引所によっては取得できない・更新が遅れる場合があります。1時間足は直近約2年分のみ取得できます。
+    価格データは Yahoo Finance の公開情報をサーバー経由で取得しています。5分足・15分足・30分足・1時間足・日足・週足・月足に対応していますが、銘柄や取引所によっては取得できない・更新が遅れる場合があります。5分足・15分足・30分足は直近60日分、1時間足は直近約2年分のみ取得できます。
   </div>
 </div>
 
@@ -955,10 +1176,8 @@ function getProjection(volCloses){
 
 const PRESETS = [
   {symbol:'^N225', name:'日経平均株価'},
-  {symbol:'1306.T', name:'TOPIX (ETF)'},
   {symbol:'^GSPC', name:'S&P500'},
   {symbol:'^IXIC', name:'NASDAQ'},
-  {symbol:'^DJI', name:'NYダウ'},
   {symbol:'^SOX', name:'SOX指数(半導体)'},
   {symbol:'^NYFANG', name:'FANG+指数'},
   {symbol:'2644.T', name:'半導体ETF(日本)'},
@@ -991,6 +1210,7 @@ try{ watchlist = JSON.parse(localStorage.getItem('watchlist') || '[]'); }catch(e
 
 let compareCache = {};
 const COMPARE_COLORS = ['#2A2420','#BF4B33','#355C5B','#C8A24A','#7A6FA6','#3E7CB1'];
+function getCompareColors(){ const T=getChartTheme(); return [T.ink, T.vermillion, T.indigo, T.gold, '#7A6FA6','#3E7CB1']; }
 const COMPARE_PERIOD_OPTIONS = [
   {label:'1ヶ月', days:30},
   {label:'3ヶ月', days:90},
@@ -1008,6 +1228,50 @@ function rangeForDays(days){
   if(days <= 320) return '2y';
   if(days <= 800) return '5y';
   return '10y';
+}
+
+function initTheme(){
+  const ov = localStorage.getItem('themeOverride');
+  const sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = ov || sys;
+  updateThemeToggle();
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e=>{
+    if(!localStorage.getItem('themeOverride')){
+      document.documentElement.dataset.theme = e.matches ? 'dark' : 'light';
+      updateThemeToggle();
+      if(fullCloses.length) render();
+    }
+  });
+}
+function toggleTheme(){
+  const current = document.documentElement.dataset.theme;
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('themeOverride', next);
+  updateThemeToggle();
+  if(fullCloses.length) render();
+  if(state.compareSymbols.length) loadCompareChart();
+}
+function updateThemeToggle(){
+  const btn = document.getElementById('themeToggle');
+  if(!btn) return;
+  const isDark = document.documentElement.dataset.theme === 'dark';
+  btn.textContent = isDark ? '☀️' : '🌙';
+  btn.title = isDark ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
+}
+
+function getCSSVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function getChartTheme(){
+  return {
+    ink:       getCSSVar('--ink'),
+    inkSoft:   getCSSVar('--ink-soft'),
+    line:      getCSSVar('--line'),
+    paper:     getCSSVar('--paper'),
+    vermillion:getCSSVar('--vermillion'),
+    indigo:    getCSSVar('--indigo'),
+    gold:      getCSSVar('--gold'),
+    panelBg:   getCSSVar('--panel-bg'),
+  };
 }
 
 const state = {
@@ -1060,10 +1324,11 @@ function setMaDays(idx, val){
 // ---------- math helpers ----------
 function sma(arr, period){
   const out = new Array(arr.length).fill(null);
-  for(let i=period-1;i<arr.length;i++){
-    let sum=0;
-    for(let j=i-period+1;j<=i;j++) sum+=arr[j];
-    out[i]=sum/period;
+  let sum = 0;
+  for(let i = 0; i < arr.length; i++){
+    sum += arr[i];
+    if(i >= period) sum -= arr[i - period];
+    if(i >= period - 1) out[i] = sum / period;
   }
   return out;
 }
@@ -1114,12 +1379,16 @@ function bollinger(closes, period=20, mult=2){
   const mid = sma(closes, period);
   const upper = new Array(closes.length).fill(null);
   const lower = new Array(closes.length).fill(null);
-  for(let i=period-1;i<closes.length;i++){
-    let sumSq=0;
-    for(let j=i-period+1;j<=i;j++) sumSq += Math.pow(closes[j]-mid[i],2);
-    const sd = Math.sqrt(sumSq/period);
-    upper[i] = mid[i] + mult*sd;
-    lower[i] = mid[i] - mult*sd;
+  let sum = 0, sumSq = 0;
+  for(let i = 0; i < closes.length; i++){
+    sum += closes[i]; sumSq += closes[i] * closes[i];
+    if(i >= period){ sum -= closes[i - period]; sumSq -= closes[i - period] * closes[i - period]; }
+    if(i >= period - 1 && mid[i] != null){
+      const mean = sum / period;
+      const sd = Math.sqrt(Math.max(0, sumSq / period - mean * mean));
+      upper[i] = mid[i] + mult * sd;
+      lower[i] = mid[i] - mult * sd;
+    }
   }
   return {mid, upper, lower};
 }
@@ -1187,17 +1456,21 @@ function fngGaugeSVG(value){
   const r = 70;
   const nx = (100 + r*Math.cos(angleRad)).toFixed(1);
   const ny = (105 - r*Math.sin(angleRad)).toFixed(1);
+  const cInk = getCSSVar('--ink');
+  const cVermillion = getCSSVar('--vermillion');
+  const cGold = getCSSVar('--gold');
+  const cIndigo = getCSSVar('--indigo');
   return `<svg class="gauge-svg" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="fngGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#BF4B33"/>
-        <stop offset="50%" stop-color="#C8A24A"/>
-        <stop offset="100%" stop-color="#355C5B"/>
+        <stop offset="0%" stop-color="${cVermillion}"/>
+        <stop offset="50%" stop-color="${cGold}"/>
+        <stop offset="100%" stop-color="${cIndigo}"/>
       </linearGradient>
     </defs>
     <path d="M 15 105 A 85 85 0 0 1 185 105" fill="none" stroke="url(#fngGrad)" stroke-width="14" stroke-linecap="round"/>
-    <line x1="100" y1="105" x2="${nx}" y2="${ny}" stroke="#2A2420" stroke-width="3" stroke-linecap="round"/>
-    <circle cx="100" cy="105" r="5" fill="#2A2420"/>
+    <line x1="100" y1="105" x2="${nx}" y2="${ny}" stroke="${cInk}" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="100" cy="105" r="5" fill="${cInk}"/>
   </svg>`;
 }
 
@@ -1225,7 +1498,25 @@ function fmtDate(ts, withYear){
 }
 function fmtDateTime(ts){
   const d = new Date(ts);
-  return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':00';
+  return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function isIntraday(){ return ['1m','5m','15m','30m','60m'].includes(state.interval); }
+function intervalLabel(iv){
+  return {
+    '1m':'1分足','5m':'5分足','15m':'15分足','30m':'30分足','60m':'1時間足',
+    '1d':'日足','1wk':'週足','1mo':'月足'
+  }[iv||state.interval] || state.interval;
+}
+// インデックス足のX軸ラベル：日付変わり目は "M/D"、それ以外は "HH:MM"
+function intradayXTick(val, idx, ticks){
+  const lbl = this.getLabelForValue(val);
+  if(!lbl) return '';
+  const sp = lbl.indexOf(' ');
+  if(sp < 0) return lbl;
+  const date = lbl.slice(0, sp), time = lbl.slice(sp+1);
+  if(idx === 0) return date;
+  const prev = this.getLabelForValue(ticks[idx-1]?.value ?? -1);
+  return (prev && prev.split(' ')[0] === date) ? time : date;
 }
 function fmtPercent(n, digits=2){
   if(n==null) return '--';
@@ -1255,32 +1546,45 @@ function fmtMarketCap(n, currency){
 function scoreMeterSVG(score){
   const pct = (score+5)/10; // -5..5 -> 0..1
   const x = 10 + pct*380;
+  const cInk = getCSSVar('--ink');
+  const cInkSoft = getCSSVar('--ink-soft');
+  const cVermillion = getCSSVar('--vermillion');
+  const cGold = getCSSVar('--gold');
+  const cIndigo = getCSSVar('--indigo');
   return `<svg class="meter-svg" viewBox="0 0 400 50" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#BF4B33"/>
-        <stop offset="50%" stop-color="#C8A24A"/>
-        <stop offset="100%" stop-color="#355C5B"/>
+        <stop offset="0%" stop-color="${cVermillion}"/>
+        <stop offset="50%" stop-color="${cGold}"/>
+        <stop offset="100%" stop-color="${cIndigo}"/>
       </linearGradient>
     </defs>
     <rect x="10" y="18" width="380" height="10" rx="5" fill="url(#scoreGrad)" opacity="0.85"/>
-    <polygon points="${(x-7).toFixed(1)},6 ${(x+7).toFixed(1)},6 ${x.toFixed(1)},18" fill="#2A2420"/>
-    <text x="10" y="42" font-size="11" fill="#6E6356" font-family="JetBrains Mono, monospace">過熱注意</text>
-    <text x="200" y="42" font-size="11" fill="#6E6356" font-family="JetBrains Mono, monospace" text-anchor="middle">様子見</text>
-    <text x="390" y="42" font-size="11" fill="#6E6356" font-family="JetBrains Mono, monospace" text-anchor="end">注目</text>
+    <polygon points="${(x-7).toFixed(1)},6 ${(x+7).toFixed(1)},6 ${x.toFixed(1)},18" fill="${cInk}"/>
+    <text x="10" y="42" font-size="11" fill="${cInkSoft}" font-family="JetBrains Mono, monospace">過熱注意</text>
+    <text x="200" y="42" font-size="11" fill="${cInkSoft}" font-family="JetBrains Mono, monospace" text-anchor="middle">様子見</text>
+    <text x="390" y="42" font-size="11" fill="${cInkSoft}" font-family="JetBrains Mono, monospace" text-anchor="end">注目</text>
   </svg>`;
 }
 
 // ---------- chart helpers ----------
 // カーソルを縦に合わせるだけで、その日時の全系列の値をまとめて表示する共通設定
 const HOVER_INTERACTION = { mode:'index', intersect:false };
+function hexToRgba(hex, alpha){
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 function tooltipTheme(labelFn, extraCallbacks={}){
+  const T = getChartTheme();
+  const bg = T.ink.startsWith('#') ? hexToRgba(T.ink, 0.94) : 'rgba(42,36,32,0.94)';
   return {
     enabled:true,
-    backgroundColor:'rgba(42,36,32,0.94)',
-    titleColor:'#F4EFE3',
-    bodyColor:'#F4EFE3',
-    borderColor:'#C8A24A',
+    backgroundColor:bg,
+    titleColor:T.paper,
+    bodyColor:T.paper,
+    borderColor:T.gold,
     borderWidth:1,
     padding:10,
     titleFont:{family:'JetBrains Mono', size:11},
@@ -1302,10 +1606,12 @@ function updatePriceHoverBar(context){
   }
   const title = tooltip.title?.[0] || '';
   const points = tooltip.dataPoints.filter(p=>
-    p.parsed.y !== null && !isNaN(p.parsed.y) && !p.dataset.label.startsWith('_')
+    p.parsed.y !== null && !isNaN(p.parsed.y) && !p.dataset.label.startsWith('_') &&
+    !chart.getDatasetMeta(p.datasetIndex).hidden
   );
   // 暗背景で見えにくい暗色（価格線のデフォルト色）は明るい色に置換
-  const dotColor = c => (c === '#2A2420' || c === 'transparent') ? '#C8BFB4' : c;
+  const _T = getChartTheme();
+  const dotColor = c => (c === '#2A2420' || c === _T.ink || c === 'transparent') ? _T.inkSoft : c;
   let html = `<span class="hb-date">${title}</span>`;
   if(state.chartType==='candlestick' && chart.candlestickData){
     const d = chart.candlestickData[tooltip.dataPoints[0]?.dataIndex];
@@ -1335,7 +1641,8 @@ function showScrubberBar(idx){
   if(!priceChart) return;
 
   const label = priceChart.data.labels[idx] || '';
-  const dotColor = c => (!c || c==='#2A2420' || c==='transparent') ? '#C8BFB4' : c;
+  const _T2 = getChartTheme();
+  const dotColor = c => (!c || c==='#2A2420' || c===_T2.ink || c==='transparent') ? _T2.inkSoft : c;
   let html = `<span class="hb-date">${label}</span>`;
 
   if(state.chartType==='candlestick' && priceChart.candlestickData){
@@ -1382,7 +1689,8 @@ function showScrubberBar(idx){
       if(v>=1e8) s=(v/1e8).toFixed(1)+'億';
       else if(v>=1e4) s=(v/1e4).toFixed(0)+'万';
       else s=v.toLocaleString('ja-JP');
-      html += `<span class="hb-item"><span class="hb-dot" style="background:#8C9B9A"></span>出来高: ${s}</span>`;
+      const _T4 = getChartTheme();
+      html += `<span class="hb-item"><span class="hb-dot" style="background:${_T4.indigo}"></span>出来高: ${s}</span>`;
     }
   }
 
@@ -1457,14 +1765,15 @@ function updateSubChartBars(idx){
   const priceV = priceChart.data.datasets[0].data[idx];
   const priceTxt = priceV!=null ? fmtPrice(priceV) : '--';
 
+  const _T3 = getChartTheme();
   const rsiBar = document.getElementById('rsiHoverBar');
   if(rsiBar){
     const rsiChart = mainCharts.find(c=>c.canvas.id==='rsiChart');
     const rsiDs = rsiChart?.data.datasets.find(d=>d.label==='RSI');
     const rv = rsiDs?.data[Math.min(idx, (rsiDs.data.length||1)-1)];
     let h = `<span class="hb-date">${label}</span>`;
-    h += `<span class="hb-item"><span class="hb-dot" style="background:#C8BFB4"></span>価格: ${priceTxt}</span>`;
-    if(rv!=null && !isNaN(rv)) h += `<span class="hb-item"><span class="hb-dot" style="background:#BF4B33"></span>RSI: ${rv.toFixed(1)}</span>`;
+    h += `<span class="hb-item"><span class="hb-dot" style="background:${_T3.inkSoft}"></span>価格: ${priceTxt}</span>`;
+    if(rv!=null && !isNaN(rv)) h += `<span class="hb-item"><span class="hb-dot" style="background:${_T3.vermillion}"></span>RSI: ${rv.toFixed(1)}</span>`;
     rsiBar.innerHTML = h; rsiBar.classList.add('active');
   }
 
@@ -1472,7 +1781,7 @@ function updateSubChartBars(idx){
   if(macdBar){
     const macdChart = mainCharts.find(c=>c.canvas.id==='macdChart');
     let h = `<span class="hb-date">${label}</span>`;
-    h += `<span class="hb-item"><span class="hb-dot" style="background:#C8BFB4"></span>価格: ${priceTxt}</span>`;
+    h += `<span class="hb-item"><span class="hb-dot" style="background:${_T3.inkSoft}"></span>価格: ${priceTxt}</span>`;
     if(macdChart){
       macdChart.data.datasets.forEach(ds=>{
         if(ds.label.startsWith('_')) return;
@@ -1490,12 +1799,12 @@ function updateSubChartBars(idx){
   if(volBar){
     const volChart = mainCharts.find(c=>c.canvas.id==='volumeChart');
     let h = `<span class="hb-date">${label}</span>`;
-    h += `<span class="hb-item"><span class="hb-dot" style="background:#C8BFB4"></span>価格: ${priceTxt}</span>`;
+    h += `<span class="hb-item"><span class="hb-dot" style="background:${_T3.inkSoft}"></span>価格: ${priceTxt}</span>`;
     if(volChart?.data.datasets[0]){
       const v = volChart.data.datasets[0].data[Math.min(idx,(volChart.data.datasets[0].data.length||1)-1)];
       if(v!=null && !isNaN(v) && v>0){
         let s; if(v>=1e8) s=(v/1e8).toFixed(1)+'億'; else if(v>=1e4) s=(v/1e4).toFixed(0)+'万'; else s=v.toLocaleString('ja-JP');
-        h += `<span class="hb-item"><span class="hb-dot" style="background:#8C9B9A"></span>出来高: ${s}</span>`;
+        h += `<span class="hb-item"><span class="hb-dot" style="background:${_T3.indigo}"></span>出来高: ${s}</span>`;
       }
     }
     volBar.innerHTML = h; volBar.classList.add('active');
@@ -1505,31 +1814,36 @@ function updateSubChartBars(idx){
 // 現在値を示す横破線（価格チャート用、外部プラグインなしで描画）
 const currentValueLinePlugin = {
   id:'currentValueLine',
-  afterDatasetsDraw(chart, args, opts){
+  afterDraw(chart, args, opts){
     if(!opts || opts.value==null) return;
-    const y = chart.scales.y;
-    const yPos = y.getPixelForValue(opts.value);
+    const yScale = chart.scales.y;
+    const yPos = yScale.getPixelForValue(opts.value);
     const {left, right, top, bottom} = chart.chartArea;
     if(yPos < top || yPos > bottom) return;
     const ctx = chart.ctx;
+    const lineColor = opts.color || getCSSVar('--ink');
+    const paperColor = getCSSVar('--paper');
+    const axisW = yScale.width || 60;
+    const bx = 1, bw = axisW - 2;
     ctx.save();
     ctx.beginPath();
     ctx.setLineDash([5,4]);
     ctx.moveTo(left, yPos);
     ctx.lineTo(right, yPos);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = opts.color || '#2A2420';
+    ctx.strokeStyle = lineColor;
     ctx.stroke();
     ctx.setLineDash([]);
-    const text = opts.label || '';
+    ctx.fillStyle = lineColor;
+    ctx.fillRect(bx, yPos - 9, bw, 18);
+    ctx.beginPath();
+    ctx.rect(bx, yPos - 9, bw, 18);
+    ctx.clip();
     ctx.font = '700 10px JetBrains Mono, monospace';
-    const tw = ctx.measureText(text).width;
-    const bx = right - tw - 12;
-    ctx.fillStyle = opts.color || '#2A2420';
-    ctx.fillRect(bx, yPos-8, tw+10, 16);
-    ctx.fillStyle = '#F4EFE3';
+    ctx.fillStyle = paperColor;
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, bx+5, yPos+1);
+    ctx.textAlign = 'center';
+    ctx.fillText(opts.label || '', bx + bw / 2, yPos + 1);
     ctx.restore();
   }
 };
@@ -1545,13 +1859,15 @@ const candlestickPlugin = {
     if(!data || chart.candlestickVisible===false) return;
     const {ctx, chartArea, scales} = chart;
     const xScale = scales.x, yScale = scales.y;
-    // 表示範囲（ズーム/パン後）に合わせて本数とローソク幅を決める
     const startIdx = Math.max(0, Math.floor(xScale.min));
     const endIdx = Math.min(data.length-1, Math.ceil(xScale.max));
     const visibleCount = Math.max(1, endIdx - startIdx + 1);
     const slot = chartArea.width / visibleCount;
     const bw = Math.max(1, Math.min(slot*0.6, 14));
+    const colorUp = getCSSVar('--indigo');
+    const colorDown = getCSSVar('--vermillion');
     ctx.save();
+    ctx.lineWidth = 1;
     for(let i=startIdx;i<=endIdx;i++){
       const d = data[i];
       if(!d || d.o==null || d.c==null || d.h==null || d.l==null) continue;
@@ -1560,18 +1876,14 @@ const candlestickPlugin = {
       const yC = yScale.getPixelForValue(d.c);
       const yH = yScale.getPixelForValue(d.h);
       const yL = yScale.getPixelForValue(d.l);
-      const up = d.c >= d.o;
-      const color = up ? '#355C5B' : '#BF4B33';
+      const color = d.c >= d.o ? colorUp : colorDown;
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
-      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(x, yH);
       ctx.lineTo(x, yL);
       ctx.stroke();
-      const top = Math.min(yO, yC);
-      const h = Math.max(1, Math.abs(yC-yO));
-      ctx.fillRect(x-bw/2, top, bw, h);
+      ctx.fillRect(x-bw/2, Math.min(yO,yC), bw, Math.max(1, Math.abs(yC-yO)));
     }
     ctx.restore();
   }
@@ -1748,7 +2060,9 @@ function applyQuote(){
     const mm = String(t.getMinutes()).padStart(2,'0');
     const ss = String(t.getSeconds()).padStart(2,'0');
     const live = (quote.marketState === 'REGULAR' || meta.instrumentType === 'CRYPTOCURRENCY');
-    statusEl.innerHTML = `${live ? '<span class="live-dot"></span>' : ''}${marketStateLabel(quote)}・更新 ${hh}:${mm}:${ss}`;
+    const isCrypto = meta.instrumentType === 'CRYPTOCURRENCY';
+    const delayNote = live ? `<span class="delay-note">${isCrypto ? '（数分遅延）' : '（約15〜20分遅延）'}</span>` : '';
+    statusEl.innerHTML = `${live ? '<span class="live-dot"></span>' : ''}${marketStateLabel(quote)}・更新 ${hh}:${mm}:${ss}${delayNote}`;
   }
 
   // --- 現在の気配ボード（指値パネル） ---
@@ -1764,7 +2078,7 @@ function applyQuote(){
   const pc = Chart.getChart('priceChart');
   if(pc && pc.options.plugins && pc.options.plugins.currentValueLine){
     pc.options.plugins.currentValueLine.value = price;
-    pc.options.plugins.currentValueLine.label = '現在 ' + fmtPrice(price);
+    pc.options.plugins.currentValueLine.label = fmtPrice(price);
     pc.update('none');
   }
 
@@ -1812,14 +2126,31 @@ function stopQuotePolling(){
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pollQuote(); });
 
 async function load(){
-  content.innerHTML = `<div class="loading">価格データを読み込んでいます…</div>`;
+  const skelH = window.innerWidth < 600 ? 240 : 360;
+  content.innerHTML = `
+    <div class="skel-panel">
+      <div class="skel" style="height:14px;width:130px;margin-bottom:18px;"></div>
+      <div class="skel" style="height:${skelH}px;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">${'<div class="skel" style="height:22px;width:70px;border-radius:11px;"></div>'.repeat(5)}</div>
+    </div>
+    <div class="skel-panel">
+      <div class="skel" style="height:14px;width:80px;margin-bottom:16px;"></div>
+      <div class="skel" style="height:100px;"></div>
+    </div>
+    <div class="skel-panel">
+      <div class="skel" style="height:14px;width:100px;margin-bottom:16px;"></div>
+      <div class="skel" style="height:80px;"></div>
+    </div>`;
   intervalAutoFallback = false;
   try{
-    // 1時間足はYahoo Finance側の制約で長期間のデータを取得できないため、直近約2年分に限定
-    const range = state.interval === '60m' ? '730d' : '10y';
+    // 足種別に取得可能な最大期間が異なる（Yahoo Finance制約）
+    const range = state.interval === '60m' ? '730d'
+                : ['5m','15m','30m'].includes(state.interval) ? '60d'
+                : state.interval === '1m' ? '5d'
+                : '10y';
     let data = await fetchChart(state.symbol, range, state.interval);
-    // 新規上場銘柄などで日足・週足・月足のデータが少なすぎる場合、1時間足に自動切替する
-    if(data.closes.length < 30 && state.interval !== '60m'){
+    // 新規上場銘柄などで日足のデータが少なすぎる場合、1時間足に自動切替する
+    if(data.closes.length < 30 && state.interval === '1d'){
       const fallback = await fetchChart(state.symbol, '730d', '60m');
       if(fallback.closes.length > data.closes.length){
         data = fallback;
@@ -1885,19 +2216,67 @@ async function load(){
   renderAll();
   applyQuote();
   startQuotePolling();
+  updateURL();
+  saveLastSymbol();
 }
 
 // ---------- controls ----------
 function periodOptions(){
   const N = fullTimestamps.length;
+  if(state.interval === '1m'){
+    const raw = [
+      {label:'30分',  days:30},
+      {label:'1時間', days:60},
+      {label:'3時間', days:180},
+      {label:'半日',  days:210},
+      {label:'1日',   days:400},
+    ].filter(o=>o.days < N);
+    raw.push({label:`全期間(${N}本)`, days:N});
+    return raw;
+  }
+  if(state.interval === '5m'){
+    const raw = [
+      {label:'1日',   days:80},
+      {label:'3日',   days:240},
+      {label:'1週間', days:400},
+      {label:'2週間', days:800},
+      {label:'1ヶ月', days:1700},
+    ].filter(o=>o.days < N);
+    raw.push({label:`全期間(${N}本)`, days:N});
+    return raw;
+  }
+  if(state.interval === '15m'){
+    const raw = [
+      {label:'1日',   days:28},
+      {label:'3日',   days:84},
+      {label:'1週間', days:140},
+      {label:'2週間', days:280},
+      {label:'1ヶ月', days:560},
+    ].filter(o=>o.days < N);
+    raw.push({label:`全期間(${N}本)`, days:N});
+    return raw;
+  }
+  if(state.interval === '30m'){
+    const raw = [
+      {label:'1日',   days:15},
+      {label:'3日',   days:45},
+      {label:'1週間', days:70},
+      {label:'2週間', days:140},
+      {label:'1ヶ月', days:280},
+    ].filter(o=>o.days < N);
+    raw.push({label:`全期間(${N}本)`, days:N});
+    return raw;
+  }
   if(state.interval === '60m'){
     const raw = [
-      {label:'1日', days:10},
-      {label:'3日', days:30},
+      {label:'1日',   days:10},
+      {label:'3日',   days:30},
       {label:'1週間', days:50},
       {label:'2週間', days:100},
       {label:'1ヶ月', days:200},
       {label:'3ヶ月', days:500},
+      {label:'6ヶ月', days:1000},
+      {label:'1年',   days:2000},
     ].filter(o=>o.days < N);
     raw.push({label:`全期間(${N}本)`, days:N});
     return raw;
@@ -1947,14 +2326,25 @@ function periodOptions(){
 function barUnit(){
   if(state.interval === '1wk') return '週';
   if(state.interval === '1mo') return 'か月';
-  if(state.interval === '60m') return '本';
+  if(isIntraday()) return '本';
   return '日';
 }
 
 // チャート見出し等で使う「〇〇日間／〇〇本」のような期間表記
 function periodLabel(dispN){
   const u = barUnit();
-  return u === '本' ? `${dispN}${u}` : `${dispN}${u}間`;
+  if(u === '本'){
+    // 実際のデータからバー密度を計算して日数に換算
+    const N = fullTimestamps.length;
+    if(N >= 2){
+      const tradingDays = new Set(fullTimestamps.map(t => new Date(t).toDateString())).size;
+      const bpd = tradingDays > 0 ? N / tradingDays : 1;
+      const approxDays = Math.round(dispN / bpd);
+      if(approxDays >= 1) return approxDays === 1 ? '約1日分' : `約${approxDays}日分`;
+    }
+    return `${dispN}本`;
+  }
+  return `${dispN}${u}間`;
 }
 
 function volLookbackOptions(){
@@ -1984,32 +2374,32 @@ const PROJ_DAYS_MAX = 1825;
 function setPeriod(d){
   const N = fullTimestamps.length;
   state.period = Math.min(Math.max(5, d), N);
-  renderAll();
+  renderControls(); render(); updateURL();
 }
-function setShowProjection(v){ state.showProjection = v; renderAll(); }
-function setYScale(s){ state.yScale = s; renderAll(); }
+function setShowProjection(v){ state.showProjection = v; renderControls(); render(); }
+function setYScale(s){ state.yScale = s; render(); }
 function setChartType(t){
   if(state.chartType === t) return;
   state.chartType = t;
-  renderAll();
+  renderControls(); render(); updateURL();
 }
 function setChartInterval(iv){
   if(state.interval === iv) return;
   state.interval = iv;
   // 足の種類に応じて表示本数の初期値を調整（週足=約2年分、月足=約2年分、1時間足=直近2週間程度）
-  state.period = iv === '1mo' ? 24 : (iv === '1wk' ? 104 : (iv === '60m' ? 100 : 180));
-  // 予測シナリオは日足の値動き（年率換算）を前提としているため、日足以外では非表示にする
-  state.showProjection = (iv === '1d');
+  state.period = iv==='1mo' ? 24 : iv==='1wk' ? 104 : iv==='60m' ? 100 : iv==='30m' ? 30 : iv==='15m' ? 52 : iv==='5m' ? 80 : iv==='1m' ? 60 : 180;
+  // 予測シナリオは日足専用。非日足では強制OFFにするが、日足に戻る際はユーザー設定を維持する
+  if(iv !== '1d') state.showProjection = false;
   load();
 }
 function setVolLookback(d){
   const N = fullCloses.length;
   state.volLookback = Math.min(Math.max(10, d), N);
-  renderAll();
+  renderControls(); render();
 }
 function setProjDays(d){
   state.projDays = Math.min(Math.max(1, d), PROJ_DAYS_MAX);
-  renderAll();
+  renderControls(); render();
 }
 function setSymbol(symbol, name){
   state.symbol = symbol;
@@ -2051,9 +2441,11 @@ function renderWatchlist(){
       <div class="section-title">ウォッチリスト</div>
       <div class="watch-grid">
         ${watchlist.map(w=>`
-          <div class="watch-card ${w.symbol===state.symbol?'active':''}" onclick="setSymbol('${w.symbol.replace(/'/g,"\\'")}','${(w.name||w.symbol).replace(/'/g,"\\'")}')">
+          <div class="watch-card ${w.symbol===state.symbol?'active':''}" draggable="true" onclick="if(!window._wDrag)setSymbol('${w.symbol.replace(/'/g,"\\'")}','${(w.name||w.symbol).replace(/'/g,"\\'")}')">
+            <span class="watch-drag-handle" aria-hidden="true">⠿</span>
             <button class="watch-remove" onclick="removeWatch(event,'${w.symbol.replace(/'/g,"\\'")}')" aria-label="ウォッチリストから削除">×</button>
-            <div class="watch-name">${w.name}</div>
+            <div class="watch-name" title="${w.name}">${w.name}</div>
+            <svg class="watch-sparkline" id="spark-${cssSafe(w.symbol)}" viewBox="0 0 120 36" preserveAspectRatio="none"></svg>
             <div class="watch-price" id="wprice-${cssSafe(w.symbol)}">…</div>
             <div class="watch-chg" id="wchg-${cssSafe(w.symbol)}"></div>
           </div>
@@ -2062,6 +2454,328 @@ function renderWatchlist(){
     </div>`;
 
   refreshWatchlistPrices();
+  loadWatchlistSparklines();
+  setupWatchlistDrag();
+}
+
+// ---- MA ボトムシート ----
+let _maSheetIdx = null, _maSheetOrigVal = null, _maSheetSwipeReady = false;
+
+const MA_SHEET_PRESETS = [[5,10,20,25], [50,75,100], [100,200,250]];
+const MA_SHEET_MINS    = [3,  20,  50];
+const MA_SHEET_MAXS    = [50, 150, 500];
+
+function openMaSheet(maIdx){
+  _maSheetIdx = maIdx;
+  _maSheetOrigVal = state.maDays[maIdx];
+  const names = ['短期', '中期', '長期'];
+  const val   = state.maDays[maIdx];
+  const min   = MA_SHEET_MINS[maIdx];
+  const max   = MA_SHEET_MAXS[maIdx];
+  const slider = document.getElementById('maSheetSlider');
+  slider.min = min; slider.max = max; slider.value = val;
+  document.getElementById('maSheetTitle').textContent = `${names[maIdx]}移動平均線 — 期間（${min}〜${max}日）`;
+  document.getElementById('maSheetValue').textContent = `${val}日`;
+  document.getElementById('maSheetPresets').innerHTML =
+    MA_SHEET_PRESETS[maIdx].map(p =>
+      `<button class="ma-sheet-preset${p===val?' active':''}" onclick="onMaSheetPreset(${p})">${p}日</button>`
+    ).join('');
+  document.getElementById('maSheetOverlay').style.display = 'block';
+  requestAnimationFrame(() => document.getElementById('maSheetPanel').classList.add('open'));
+  if(!_maSheetSwipeReady){ _maSheetSwipeReady = true; setupMaSheetSwipe(); }
+}
+
+function onMaSheetPreset(v){
+  document.getElementById('maSheetSlider').value = v;
+  document.querySelectorAll('.ma-sheet-preset').forEach(b =>
+    b.classList.toggle('active', parseInt(b.textContent) === v)
+  );
+  onMaSheetSlider(v);
+}
+
+function closeMaSheet(){
+  const panel = document.getElementById('maSheetPanel');
+  panel.style.transform = ''; // スワイプ途中のインラインtransformをリセット
+  panel.classList.remove('open');
+  document.getElementById('maSheetOverlay').style.display = 'none';
+  if(_maSheetIdx !== null && state.maDays[_maSheetIdx] !== _maSheetOrigVal) render();
+  _maSheetIdx = null; _maSheetOrigVal = null;
+}
+
+function setupMaSheetSwipe(){
+  const panel = document.getElementById('maSheetPanel');
+  if(!panel) return;
+
+  // スマホ: touch イベント（passive:false で preventDefault 可能）
+  let sy = null, sx = null;
+  panel.addEventListener('touchstart', e => {
+    sy = e.touches[0].clientY;
+    sx = e.touches[0].clientX;
+    panel.style.transition = 'none';
+  }, {passive:true});
+  panel.addEventListener('touchmove', e => {
+    if(sy === null) return;
+    const dy = e.touches[0].clientY - sy;
+    const dx = Math.abs(e.touches[0].clientX - sx);
+    if(dy > 0 && dy > dx){ e.preventDefault(); panel.style.transform = `translateY(${dy}px)`; }
+  }, {passive:false});
+  panel.addEventListener('touchend', e => {
+    if(sy === null) return;
+    const dy = e.changedTouches[0].clientY - sy;
+    sy = null; sx = null;
+    if(dy > 60){
+      panel.style.transition = 'transform 0.2s ease';
+      panel.style.transform = 'translateY(100%)';
+      setTimeout(() => closeMaSheet(), 180);
+    } else {
+      panel.style.transition = ''; panel.style.transform = '';
+    }
+  }, {passive:true});
+
+  // PC: pointer イベント（マウスのみ。touch は上の touch イベントで処理）
+  let startY = null;
+  panel.addEventListener('pointerdown', e => {
+    if(e.pointerType === 'touch') return;
+    if(e.target.closest('input[type="range"], button')) return;
+    e.preventDefault();
+    startY = e.clientY;
+    panel.setPointerCapture(e.pointerId);
+    panel.style.transition = 'none';
+  });
+  panel.addEventListener('pointermove', e => {
+    if(e.pointerType === 'touch' || startY === null) return;
+    const dy = e.clientY - startY;
+    if(dy > 0) panel.style.transform = `translateY(${dy}px)`;
+  });
+  panel.addEventListener('pointerup', e => {
+    if(e.pointerType === 'touch' || startY === null) return;
+    const dy = e.clientY - startY;
+    startY = null;
+    if(dy > 60){
+      panel.style.transition = 'transform 0.2s ease';
+      panel.style.transform = 'translateY(100%)';
+      setTimeout(() => closeMaSheet(), 180);
+    } else {
+      panel.style.transition = ''; panel.style.transform = '';
+    }
+  });
+}
+
+function onMaSheetSlider(v){
+  if(_maSheetIdx === null) return;
+  const newVal = parseInt(v);
+  document.getElementById('maSheetValue').textContent = `${newVal}日`;
+  document.querySelectorAll('.ma-sheet-preset').forEach(b =>
+    b.classList.toggle('active', parseInt(b.textContent) === newVal)
+  );
+  state.maDays[_maSheetIdx] = newVal;
+  refreshMaLive(_maSheetIdx, newVal);
+}
+
+function refreshMaLive(maIdx, newVal){
+  const pc = mainCharts.find(c => c.canvas.id === 'priceChart');
+  if(!pc || !fullCloses.length) return;
+  const dsIdx = maIdx + 1; // 0→datasets[1](ma25), 1→datasets[2](ma75), 2→datasets[3](ma200)
+  const maFull = sma(fullCloses, newVal);
+  const padLen = Math.max(0, pc.data.labels.length - fullCloses.length);
+  pc.data.datasets[dsIdx].data = [...maFull, ...new Array(padLen).fill(null)];
+  pc.data.datasets[dsIdx].label = `${newVal}日線`;
+  pc.update('none');
+}
+
+function setupMaDragInputs(){
+  document.querySelectorAll('.ma-day-input').forEach((input, maIdx) => {
+    const resize = () => { input.style.width = Math.max(1, String(input.value).length) + 'ch'; };
+    resize();
+    input.addEventListener('change', resize);
+
+    // PC・スマホ共通: 横ドラッグ→値変更、タップ→シートを開く
+    input.addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const startX = e.clientX;
+      const startVal = parseInt(input.value) || 1;
+      let moved = false;
+
+      const onMove = e => {
+        if(Math.abs(e.clientX - startX) > 5) moved = true;
+        if(!moved) return;
+        const delta = Math.round((e.clientX - startX) / 3);
+        const min = parseInt(input.min) || 1;
+        const max = parseInt(input.max) || 500;
+        const newVal = Math.max(min, Math.min(max, startVal + delta));
+        if(String(newVal) !== String(input.value)){
+          input.value = newVal;
+          resize();
+          state.maDays[maIdx] = newVal;
+          refreshMaLive(maIdx, newVal);
+        }
+      };
+
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        if(!moved){
+          openMaSheet(maIdx); // タップ→シートを開く
+        } else {
+          render();
+        }
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+  });
+}
+
+function setupWatchlistDrag(){
+  const grid = document.querySelector('.watch-grid');
+  if(!grid) return;
+  const getCards = () => [...grid.querySelectorAll('.watch-card')];
+
+  // --- Desktop: HTML5 drag (card全体) ---
+  let srcIdx = null;
+  window._wDrag = false;
+
+  grid.addEventListener('dragstart', e => {
+    if(e.target.closest('.watch-remove')) return;
+    const card = e.target.closest('.watch-card');
+    if(!card) return;
+    srcIdx = getCards().indexOf(card);
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    window._wDrag = true;
+  });
+  grid.addEventListener('dragend', () => {
+    getCards().forEach(c => c.classList.remove('dragging','drag-over'));
+    srcIdx = null;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ window._wDrag = false; }));
+  });
+  grid.addEventListener('dragover', e => {
+    e.preventDefault();
+    const card = e.target.closest('.watch-card');
+    if(!card || srcIdx===null) return;
+    const idx = getCards().indexOf(card);
+    getCards().forEach(c=>c.classList.remove('drag-over'));
+    if(idx!==srcIdx) card.classList.add('drag-over');
+  });
+  grid.addEventListener('drop', e => {
+    e.preventDefault();
+    const card = e.target.closest('.watch-card');
+    if(!card || srcIdx===null) return;
+    const dstIdx = getCards().indexOf(card);
+    if(srcIdx!==dstIdx){
+      const [moved] = watchlist.splice(srcIdx, 1);
+      watchlist.splice(dstIdx, 0, moved);
+      saveWatchlist(); renderWatchlist();
+    }
+  });
+
+  // --- Touch/pointer drag: ハンドル起点 ---
+  let ptSrcIdx = null;
+  let ptGhost = null;
+  let ptOffX = 0, ptOffY = 0;
+
+  grid.addEventListener('pointerdown', e => {
+    if(!e.target.closest('.watch-drag-handle')) return;
+    const card = e.target.closest('.watch-card');
+    if(!card) return;
+    e.preventDefault();
+    grid.setPointerCapture(e.pointerId);
+    ptSrcIdx = getCards().indexOf(card);
+    card.classList.add('dragging');
+    window._wDrag = true;
+    // ゴースト生成
+    const rect = card.getBoundingClientRect();
+    ptOffX = e.clientX - rect.left;
+    ptOffY = e.clientY - rect.top;
+    ptGhost = card.cloneNode(true);
+    Object.assign(ptGhost.style, {
+      position:'fixed', left: rect.left+'px', top: rect.top+'px',
+      width: rect.width+'px', height: rect.height+'px',
+      opacity:'0.85', pointerEvents:'none', zIndex:'9999',
+      transform:'scale(1.05) rotate(-1deg)',
+      boxShadow:'0 8px 28px rgba(0,0,0,0.28)',
+      transition:'none', borderRadius:'6px'
+    });
+    document.body.appendChild(ptGhost);
+  }, {passive:false});
+
+  grid.addEventListener('pointermove', e => {
+    if(ptSrcIdx===null || !ptGhost) return;
+    e.preventDefault();
+    ptGhost.style.left = (e.clientX - ptOffX) + 'px';
+    ptGhost.style.top  = (e.clientY - ptOffY) + 'px';
+    // ドロップ先ハイライト
+    ptGhost.style.visibility = 'hidden';
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    ptGhost.style.visibility = '';
+    const cards = getCards();
+    cards.forEach(c=>c.classList.remove('drag-over'));
+    const over = el?.closest('.watch-card');
+    if(over){ const i=cards.indexOf(over); if(i!==ptSrcIdx) over.classList.add('drag-over'); }
+  }, {passive:false});
+
+  const endTouch = e => {
+    if(ptSrcIdx===null) return;
+    const cards = getCards();
+    cards.forEach(c=>c.classList.remove('dragging','drag-over'));
+    if(ptGhost){ ptGhost.remove(); ptGhost=null; }
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const over = el?.closest('.watch-card');
+    if(over){
+      const dstIdx = cards.indexOf(over);
+      if(dstIdx!==ptSrcIdx && dstIdx!==-1){
+        const [moved] = watchlist.splice(ptSrcIdx, 1);
+        watchlist.splice(dstIdx, 0, moved);
+        saveWatchlist(); renderWatchlist();
+      }
+    }
+    ptSrcIdx = null;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ window._wDrag = false; }));
+  };
+  grid.addEventListener('pointerup', endTouch);
+  grid.addEventListener('pointercancel', endTouch);
+}
+
+function renderSparklineSvg(id, closes){
+  const svg = document.getElementById('spark-' + id);
+  if(!svg || closes.length < 2) return;
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const range = max - min || 1;
+  const W = 120, H = 36, pad = 2;
+  const pts = closes.map((c, i) => {
+    const x = pad + (i / (closes.length - 1)) * (W - pad * 2);
+    const y = H - pad - ((c - min) / range) * (H - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const isUp = closes[closes.length - 1] >= closes[0];
+  const color = isUp ? '#3C8C5A' : '#BF4B33';
+  const fillId = 'sf-' + id;
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="${fillId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <polygon points="${pts} ${(W-pad).toFixed(1)},${(H-pad).toFixed(1)} ${pad},${(H-pad).toFixed(1)}" fill="url(#${fillId})"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const card = svg.closest('.watch-card');
+  if(card){ card.classList.toggle('trend-up', isUp); card.classList.toggle('trend-down', !isUp); }
+}
+
+async function loadWatchlistSparklines(){
+  if(!watchlist.length) return;
+  for(const w of watchlist){
+    try{
+      const data = await fetchChart(w.symbol, '3mo', '1d');
+      if(data && data.closes.length >= 2){
+        const closes = data.closes.slice(-60);
+        renderSparklineSvg(cssSafe(w.symbol), closes);
+      }
+    }catch(e){}
+  }
 }
 
 // ウォッチリストの価格・前日比をライブ更新（パネルは作り直さず値だけ差し替え）
@@ -2101,11 +2815,13 @@ function toggleCompareSymbol(symbol, name){
     state.compareSymbols.push(symbol);
   }
   renderCompare();
+  loadCompareChart();
 }
 
 function setComparePeriod(days){
   state.comparePeriod = Math.min(Math.max(5, days), COMPARE_DAYS_MAX);
   renderCompare();
+  loadCompareChart();
 }
 
 function labelForSymbol(symbol){
@@ -2172,8 +2888,6 @@ function renderCompare(){
         各銘柄の期間開始時点を0%とした変化率を比較しています。市場ごとに休場日が異なるため、日付が数日ずれる場合があります（直近日は揃えて表示しています）。最大6銘柄まで選択できます。
       </div>
     </div>`;
-
-  loadCompareChart();
 }
 
 async function loadCompareChart(){
@@ -2210,6 +2924,7 @@ async function loadCompareChart(){
   const withYear = state.comparePeriod > 366;
   const labels = labelSource.timestamps.map(t=>fmtDate(t, withYear));
 
+  const dynColors = getCompareColors();
   const datasets = results.map(r=>{
     const idx = state.compareSymbols.indexOf(r.symbol);
     const pad = labels.length - r.pct.length;
@@ -2217,11 +2932,12 @@ async function loadCompareChart(){
     return {
       label: labelForSymbol(r.symbol),
       data,
-      borderColor: COMPARE_COLORS[idx % COMPARE_COLORS.length],
+      borderColor: dynColors[idx % dynColors.length],
       borderWidth:1.6, pointRadius:0, tension:0.1, fill:false, spanGaps:true,
     };
   });
 
+  const TC = getChartTheme();
   compareChartInst = new Chart(canvas, {
     type:'line',
     data:{ labels, datasets },
@@ -2229,15 +2945,15 @@ async function loadCompareChart(){
       responsive:true, maintainAspectRatio:false,
       interaction: HOVER_INTERACTION,
       plugins:{
-        legend:{display:true, position:'bottom', labels:{color:'#6E6356', font:{family:'JetBrains Mono', size:11}, boxWidth:14}},
+        legend:{display:true, position:'bottom', labels:{color:TC.inkSoft, font:{family:'JetBrains Mono', size:11}, boxWidth:14}},
         tooltip: isTouchOnly ? {enabled:false} : {
           ...tooltipTheme((item)=>`${item.dataset.label}: ${item.parsed.y>=0?'+':''}${item.parsed.y.toFixed(2)}%`),
           itemSort:(a,b)=> b.parsed.y - a.parsed.y
         }
       },
       scales:{
-        x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}},
-        y:{ticks:{color:'#6E6356', font:{family:'JetBrains Mono', size:10}, callback:v=>v+'%'}, grid:{color:'#D8CFC0'}}
+        x:{ticks:{maxTicksLimit:isIntraday()?6:8, color:TC.inkSoft, font:{family:'JetBrains Mono', size:10}, maxRotation:0, ...(isIntraday()?{callback:intradayXTick}:{})}, grid:{display:false}},
+        y:{position:'left', ticks:{color:TC.inkSoft, font:{family:'JetBrains Mono', size:10}, callback:v=>v+'%'}, grid:{color:TC.line}}
       }
     }
   });
@@ -2265,7 +2981,7 @@ function renderControls(){
       <span>${unit}</span>
     </span>`;
 
-  const periodUnit = state.interval==='1wk' ? '週（任意）' : state.interval==='1mo' ? 'か月（任意）' : state.interval==='60m' ? '本（任意）' : '日（任意）';
+  const periodUnit = state.interval==='1wk' ? '週（任意）' : state.interval==='1mo' ? 'か月（任意）' : isIntraday() ? '本（任意）' : '日（任意）';
 
   controlsBox.innerHTML = `
     <div class="control-group">
@@ -2274,6 +2990,10 @@ function renderControls(){
     </div>
     <div class="control-group">
       <span class="ctrl-label">足</span>
+      <button class="pill ${state.interval==='1m'?'active':''}" onclick="setChartInterval('1m')">1分足</button>
+      <button class="pill ${state.interval==='5m'?'active':''}" onclick="setChartInterval('5m')">5分足</button>
+      <button class="pill ${state.interval==='15m'?'active':''}" onclick="setChartInterval('15m')">15分足</button>
+      <button class="pill ${state.interval==='30m'?'active':''}" onclick="setChartInterval('30m')">30分足</button>
       <button class="pill ${state.interval==='60m'?'active':''}" onclick="setChartInterval('60m')">1時間足</button>
       <button class="pill ${state.interval==='1d'?'active':''}" onclick="setChartInterval('1d')">日足</button>
       <button class="pill ${state.interval==='1wk'?'active':''}" onclick="setChartInterval('1wk')">週足</button>
@@ -2368,7 +3088,9 @@ function renderNav(){
     .filter(s=>document.getElementById(s.id))
     .map(s=>`<a href="#${s.id}" data-spy="${s.id}" onclick="navTo(event,'${s.id}')">${s.label}</a>`)
     .join('');
-  navBox.innerHTML = links + `<a class="top-link" href="#" onclick="navTo(event,'top-anchor')">↑ 先頭</a>`;
+  navBox.innerHTML = links + `<a class="top-link" href="#" onclick="navTo(event,'top-anchor')">↑ 先頭</a>` +
+    `<button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" aria-label="ダーク/ライト切替"></button>`;
+  updateThemeToggle();
   setupScrollSpy();
 }
 
@@ -2400,10 +3122,21 @@ function renderAll(){
   render();
   renderWatchlist();
   renderCompare();
+  setupLazyCompare();
   renderNav();
 }
 
+function setupLazyCompare(){
+  const panel = document.getElementById('comparePanel');
+  if(!panel) return;
+  const obs = new IntersectionObserver(entries=>{
+    if(entries[0].isIntersecting){ obs.disconnect(); loadCompareChart(); }
+  }, {rootMargin:'200px'});
+  obs.observe(panel);
+}
+
 function render(){
+  const T = getChartTheme();
   // 前回の Chart インスタンスを破棄（detached canvas の参照リーク防止）
   mainCharts.forEach(c=>{ try{ c.destroy(); }catch(e){} });
   mainCharts = [];
@@ -2553,7 +3286,8 @@ function render(){
     verdictText = `5つの指標中 ${sellCount}個が「過熱・割高」側を示しています`;
     verdictDetail = '一般的なテクニカル分析の考え方では、こうした局面は「短期的な反落リスクに注意が向きやすい」とされる水準です。ただし上昇トレンドが続く可能性も常にあります。';
   } else {
-    stampText = '様子見'; stampColor='var(--ink-soft)';
+    const _dark = document.documentElement.dataset.theme === 'dark';
+    stampText = '様子見'; stampColor = _dark ? '#7AAFCE' : 'var(--ink-soft)';
     verdictText = `指標間で方向感が一致していません（買い候補${buyCount}・売り候補${sellCount}・中立${neutralCount}）`;
     verdictDetail = 'はっきりした偏りが出ていない状態です。エントリーを急がず、もう少し値動きやニュースを確認したい局面、という見方もできます。';
   }
@@ -2586,7 +3320,7 @@ function render(){
   const projEnd = proj.median[proj.median.length-1];
 
   // --- 価格チャート用データ（全期間分を渡し、表示範囲はズーム/パンで操作する） ---
-  const allLabels = state.interval==='60m'
+  const allLabels = isIntraday()
     ? fullTimestamps.map(t=>fmtDateTime(t))
     : fullTimestamps.map(t=>fmtDate(t, true));
   const chartLabels = [...allLabels, ...futLabels];
@@ -2618,6 +3352,12 @@ function render(){
   // 価格チャートの初期表示範囲（直近dispN本＋予測区間）。
   // ライブ更新による再描画時はユーザーがズーム/パンしていた範囲を維持する。
   const totalLen = chartLabels.length;
+  const zoomMinRange = state.interval==='1m' ? 30
+                     : state.interval==='5m' ? 12
+                     : state.interval==='15m' ? 8
+                     : state.interval==='30m' ? 6
+                     : state.interval==='60m' ? 12
+                     : 10;
   const defaultXMin = Math.max(0, N - dispN);
   const defaultXMax = totalLen - 1;
   defaultChartXRange = { min: defaultXMin, max: defaultXMax };
@@ -2818,19 +3558,19 @@ function render(){
       </div>` : ''}
       <div class="legend-row">
         <button class="leg leg-price ${state.seriesVisible.price?'':'off'}" data-series="price" onclick="toggleSeries('price')">${state.chartType==='candlestick' ? 'ローソク足' : '価格'}</button>
-        <button class="leg leg-ma25 ${state.seriesVisible.ma25?'':'off'}" data-series="ma25" onclick="toggleSeries('ma25')"><input class="ma-day-input" type="number" min="1" max="${N}" value="${state.maDays[0]}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')this.blur()" onchange="setMaDays(0,this.value)">日移動平均線</button>
-        <button class="leg leg-ma75 ${state.seriesVisible.ma75?'':'off'}" data-series="ma75" onclick="toggleSeries('ma75')"><input class="ma-day-input" type="number" min="1" max="${N}" value="${state.maDays[1]}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')this.blur()" onchange="setMaDays(1,this.value)">日移動平均線</button>
-        <button class="leg leg-ma200 ${state.seriesVisible.ma200?'':'off'}" data-series="ma200" onclick="toggleSeries('ma200')"><input class="ma-day-input" type="number" min="1" max="${N}" value="${state.maDays[2]}" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')this.blur()" onchange="setMaDays(2,this.value)">日移動平均線</button>
+        <button class="leg leg-ma25 ${state.seriesVisible.ma25?'':'off'}" data-series="ma25" onclick="toggleSeries('ma25')"><input class="ma-day-input" type="number" min="3" max="50" value="${state.maDays[0]}" readonly onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')this.blur()" onchange="setMaDays(0,this.value)">日移動平均線</button>
+        <button class="leg leg-ma75 ${state.seriesVisible.ma75?'':'off'}" data-series="ma75" onclick="toggleSeries('ma75')"><input class="ma-day-input" type="number" min="20" max="150" value="${state.maDays[1]}" readonly onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')this.blur()" onchange="setMaDays(1,this.value)">日移動平均線</button>
+        <button class="leg leg-ma200 ${state.seriesVisible.ma200?'':'off'}" data-series="ma200" onclick="toggleSeries('ma200')"><input class="ma-day-input" type="number" min="50" max="500" value="${state.maDays[2]}" readonly onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" onkeydown="event.stopPropagation();if(event.key==='Enter')this.blur()" onchange="setMaDays(2,this.value)">日移動平均線</button>
         <button class="leg leg-band ${state.seriesVisible.bb?'':'off'}" data-series="bb" onclick="toggleSeries('bb')">ボリンジャーバンド</button>
         ${showProj ? `<button class="leg leg-median ${state.seriesVisible.proj?'':'off'}" data-series="proj" onclick="toggleSeries('proj')">予測レンジ</button>` : ''}
         <button class="leg" onclick="resetPriceZoom()">表示をリセット</button>
         <span class="legend-hint">ホイールでズーム・ドラッグで移動／クリックで表示切替</span>
       </div>
-      <div class="legend-row" style="margin-top:4px;">
+      <div class="legend-row legend-row-presets" style="margin-top:4px;">
         <span class="ctrl-label" style="font-size:10px;">MA一括設定</span>
-        <button class="pill ${JSON.stringify(state.maDays)==='[5,25,75]'?'active':''}" onclick="setMaPreset([5,25,75])">日本株スイング 5/25/75</button>
-        <button class="pill ${JSON.stringify(state.maDays)==='[20,50,200]'?'active':''}" onclick="setMaPreset([20,50,200])">世界基準 20/50/200</button>
         <button class="pill ${JSON.stringify(state.maDays)==='[25,75,200]'?'active':''}" onclick="setMaPreset([25,75,200])">中長期 25/75/200</button>
+        <button class="pill ${JSON.stringify(state.maDays)==='[20,50,200]'?'active':''}" onclick="setMaPreset([20,50,200])">世界基準 20/50/200</button>
+        <button class="pill ${JSON.stringify(state.maDays)==='[5,25,75]'?'active':''}" onclick="setMaPreset([5,25,75])">日本株スイング 5/25/75</button>
       </div>
       <div class="scenario-note">
         直近${dispN}${barUnit()}の値幅: ${fmtPrice(recentLow)} 〜 ${fmtPrice(recentHigh)}　/　${state.maDays[2]}日移動平均線: ${curMA200?fmtPrice(curMA200):'--'}<br>
@@ -2913,7 +3653,11 @@ function render(){
         ${isTouchOnly ? '<div class="chart-hover-bar touch-bar" id="volumeHoverBar"></div>' : ''}
         <div class="chart-box small"><canvas id="volumeChart"></canvas></div>
         ${isTouchOnly ? `<div class="chart-scrubber-wrap touch-scrubber"><span class="chart-scrubber-label">◀</span><input type="range" id="volumeScrubber" min="0" max="0" value="0" oninput="onSubScrubber(this)"><span class="chart-scrubber-label">▶</span></div>` : ''}
-      ` : '<div class="loading" style="padding:20px;">この銘柄では出来高データを取得できません。</div>'}
+      ` : `<div class="loading" style="padding:20px;">${
+        isIntraday()
+          ? `${intervalLabel()}では出来高データを取得できません。日足・週足に切り替えると表示できる場合があります。`
+          : 'この銘柄では出来高データを取得できません。'
+      }</div>`}
     </div>
     </div><!-- /.info-col-left -->
 
@@ -2968,15 +3712,15 @@ function render(){
     data:{
       labels: chartLabels,
       datasets:[
-        {label:'価格', data: priceData, borderColor: state.chartType==='candlestick'?'transparent':'#2A2420', borderWidth:1.6, pointRadius:0, tension:0.1, fill:false, hidden: state.chartType==='candlestick' ? false : !state.seriesVisible.price},
-        {label:`${state.maDays[0]}日線`, data: ma25Data, borderColor:'#C8A24A', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma25},
-        {label:`${state.maDays[1]}日線`, data: ma75Data, borderColor:'#355C5B', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma75},
-        {label:`${state.maDays[2]}日線`, data: ma200Data, borderColor:'#BF4B33', borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma200},
-        {label:'上限(+2σ)', data: bbUpperData, borderColor:'#C8A24A', borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.bb},
-        {label:'下限(-2σ)', data: bbLowerData, borderColor:'#C8A24A', borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:4, backgroundColor:'rgba(200,162,74,0.12)', hidden:!state.seriesVisible.bb},
-        {label:'予測上限(90%タイル)', data: projUpper, borderColor:'#355C5B', borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.proj},
-        {label:'予測下限(10%タイル)', data: projLower, borderColor:'#355C5B', borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:6, backgroundColor:'rgba(53,92,91,0.10)', hidden:!state.seriesVisible.proj},
-        {label:'予測中央値', data: projMedian, borderColor:'#2A2420', borderWidth:1.6, borderDash:[6,4], pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.proj},
+        {label:'価格', data: priceData, borderColor: state.chartType==='candlestick'?'transparent':T.ink, borderWidth:1.6, pointRadius:0, tension:0.1, fill:false, hidden: state.chartType==='candlestick' ? false : !state.seriesVisible.price},
+        {label:`${state.maDays[0]}日線`, data: ma25Data, borderColor:T.gold, borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma25},
+        {label:`${state.maDays[1]}日線`, data: ma75Data, borderColor:T.indigo, borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma75},
+        {label:`${state.maDays[2]}日線`, data: ma200Data, borderColor:T.vermillion, borderWidth:1.3, pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.ma200},
+        {label:'上限(+2σ)', data: bbUpperData, borderColor:T.gold, borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.bb},
+        {label:'下限(-2σ)', data: bbLowerData, borderColor:T.gold, borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:4, backgroundColor:'rgba(200,162,74,0.12)', hidden:!state.seriesVisible.bb},
+        {label:'予測上限(90%タイル)', data: projUpper, borderColor:T.indigo, borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.proj},
+        {label:'予測下限(10%タイル)', data: projLower, borderColor:T.indigo, borderWidth:1, borderDash:[3,3], pointRadius:0, tension:0.1, fill:6, backgroundColor:'rgba(53,92,91,0.10)', hidden:!state.seriesVisible.proj},
+        {label:'予測中央値', data: projMedian, borderColor:T.ink, borderWidth:1.6, borderDash:[6,4], pointRadius:0, tension:0.1, fill:false, hidden:!state.seriesVisible.proj},
         ...(state.chartType==='candlestick' ? [
           {label:'_high', data: highData, borderColor:'transparent', backgroundColor:'transparent', pointRadius:0, borderWidth:0, fill:false, tension:0},
           {label:'_low', data: lowData, borderColor:'transparent', backgroundColor:'transparent', pointRadius:0, borderWidth:0, fill:false, tension:0},
@@ -2988,7 +3732,7 @@ function render(){
       interaction: HOVER_INTERACTION,
       plugins:{
         legend:{display:false},
-        currentValueLine:{ value:lastPrice, label:'現在 '+fmtPrice(lastPrice), color:'#2A2420' },
+        currentValueLine:{ value:lastPrice, label:'現在 '+fmtPrice(lastPrice), color:T.ink },
         tooltip: isTouchOnly
           ? { enabled:false, external: updatePriceHoverBar }
           : tooltipTheme((item)=>{
@@ -3005,16 +3749,17 @@ function render(){
             }),
         zoom:{
           pan:{ enabled:true, mode:'x', onPanComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
-          zoom:{ wheel:{enabled:true}, pinch:{enabled:true}, mode:'x', onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
-          limits:{ x:{ min:0, max: totalLen-1, minRange: Math.min(10, totalLen) } }
+          zoom:{ wheel:{enabled:true, speed:0.05}, pinch:{enabled:true}, mode:'x', onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
+          limits:{ x:{ min:0, max: totalLen-1, minRange: Math.min(zoomMinRange, totalLen) } }
         }
       },
       scales:{
-        x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}, min: priceXMin, max: priceXMax},
+        x:{ticks:{maxTicksLimit:isIntraday()?6:8, color:T.inkSoft, font:{family:'JetBrains Mono', size:10}, maxRotation:0, ...(isIntraday()?{callback:intradayXTick}:{})}, grid:{display:false}, min: priceXMin, max: priceXMax},
         y:{
+          position:'left',
           type: state.yScale==='log' ? 'logarithmic' : 'linear',
-          ticks:{color:'#6E6356', font:{family:'JetBrains Mono', size:10}, callback:v=>fmtPrice(v)},
-          grid:{color:'#D8CFC0'}
+          ticks:{color:T.inkSoft, font:{family:'JetBrains Mono', size:10}, callback:v=>fmtPrice(v)},
+          grid:{color:T.line}
         }
       }
     },
@@ -3032,8 +3777,8 @@ function render(){
   // 価格チャートと表示範囲を同期させるズーム/パン設定（予測区間を含まないチャート用）
   const subZoomPlugin = {
     pan:{ enabled:true, mode:'x', onPanComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
-    zoom:{ wheel:{enabled:true}, pinch:{enabled:true}, mode:'x', onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
-    limits:{ x:{ min:0, max: N-1, minRange: Math.min(10, N) } }
+    zoom:{ wheel:{enabled:true, speed:0.05}, pinch:{enabled:true}, mode:'x', onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
+    limits:{ x:{ min:0, max: N-1, minRange: Math.min(zoomMinRange, N) } }
   };
 
   // RSI chart
@@ -3054,8 +3799,8 @@ function render(){
         zoom: subZoomPlugin
       },
       scales:{
-        x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}, min: otherXMin, max: otherXMax},
-        y:{min:0, max:100, ticks:{color:'#6E6356', font:{family:'JetBrains Mono', size:10}, stepSize:25}, grid:{color:'#D8CFC0'}}
+        x:{ticks:{maxTicksLimit:isIntraday()?6:8, color:T.inkSoft, font:{family:'JetBrains Mono', size:10}, maxRotation:0, ...(isIntraday()?{callback:intradayXTick}:{})}, grid:{display:false}, min: otherXMin, max: otherXMax},
+        y:{position:'left', min:0, max:100, ticks:{color:T.inkSoft, font:{family:'JetBrains Mono', size:10}, stepSize:25}, grid:{color:T.line}}
       }
     }
   });
@@ -3067,8 +3812,8 @@ function render(){
       labels: allLabels,
       datasets:[
         {type:'bar', label:'ヒストグラム', data: macdFull.hist, backgroundColor: macdFull.hist.map(v=> v>=0 ? 'rgba(53,92,91,0.35)' : 'rgba(191,75,51,0.35)'), borderWidth:0},
-        {type:'line', label:'MACD', data: macdFull.macdLine, borderColor:'#2A2420', borderWidth:1.6, pointRadius:0, tension:0.1},
-        {type:'line', label:'シグナル', data: macdFull.signalLine, borderColor:'#C8A24A', borderWidth:1.6, pointRadius:0, tension:0.1},
+        {type:'line', label:'MACD', data: macdFull.macdLine, borderColor:T.ink, borderWidth:1.6, pointRadius:0, tension:0.1},
+        {type:'line', label:'シグナル', data: macdFull.signalLine, borderColor:T.gold, borderWidth:1.6, pointRadius:0, tension:0.1},
       ]
     },
     options:{
@@ -3080,8 +3825,8 @@ function render(){
         zoom: subZoomPlugin
       },
       scales:{
-        x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}, min: otherXMin, max: otherXMax},
-        y:{ticks:{color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{color:'#D8CFC0'}}
+        x:{ticks:{maxTicksLimit:isIntraday()?6:8, color:T.inkSoft, font:{family:'JetBrains Mono', size:10}, maxRotation:0, ...(isIntraday()?{callback:intradayXTick}:{})}, grid:{display:false}, min: otherXMin, max: otherXMax},
+        y:{position:'left', ticks:{color:T.inkSoft, font:{family:'JetBrains Mono', size:10}}, grid:{color:T.line}}
       }
     }
   });
@@ -3119,15 +3864,16 @@ function render(){
           zoom: subZoomPlugin
         },
         scales:{
-          x:{ticks:{maxTicksLimit:8, color:'#6E6356', font:{family:'JetBrains Mono', size:10}}, grid:{display:false}, min: otherXMin, max: otherXMax},
+          x:{ticks:{maxTicksLimit:isIntraday()?6:8, color:T.inkSoft, font:{family:'JetBrains Mono', size:10}, maxRotation:0, ...(isIntraday()?{callback:intradayXTick}:{})}, grid:{display:false}, min: otherXMin, max: otherXMax},
           y:{
+            position:'left',
             min:0,
-            ticks:{color:'#6E6356', font:{family:'JetBrains Mono', size:10}, callback:v=>{
+            ticks:{color:T.inkSoft, font:{family:'JetBrains Mono', size:10}, callback:v=>{
               if(v>=1e8) return (v/1e8).toFixed(1)+'億';
               if(v>=1e4) return (v/1e4).toFixed(0)+'万';
               return v;
             }},
-            grid:{color:'#D8CFC0'}
+            grid:{color:T.line}
           }
         }
       }
@@ -3142,8 +3888,48 @@ function render(){
       if(s){ s.min = priceXMin; s.max = priceXMax; s.value = priceXMax; }
     });
   }
+
+  setupMaDragInputs();
 }
 
+// ---------- URL params ----------
+function updateURL(){
+  if(!state.symbol) return;
+  const params = new URLSearchParams({
+    s: state.symbol,
+    i: state.interval,
+    t: state.chartType,
+    p: state.period,
+  });
+  history.replaceState(null, '', '?' + params.toString());
+}
+
+function readURLParams(){
+  const p = new URLSearchParams(location.search);
+  const VALID_IV = ['1m','5m','15m','30m','60m','1d','1wk','1mo'];
+  if(p.get('s')) state.symbol = p.get('s');
+  if(p.get('i') && VALID_IV.includes(p.get('i'))) state.interval = p.get('i');
+  if(p.get('t') && ['candlestick','line','ohlc'].includes(p.get('t'))) state.chartType = p.get('t');
+  if(p.get('p') && !isNaN(+p.get('p'))) state.period = +p.get('p');
+}
+
+// ---------- localStorage helpers ----------
+function saveLastSymbol(){
+  if(state.symbol) localStorage.setItem('lastSymbol', state.symbol);
+}
+
+function loadLastSymbol(){
+  return localStorage.getItem('lastSymbol') || null;
+}
+
+// ---------- boot ----------
+readURLParams();
+const _bootSymbol = new URLSearchParams(location.search).get('s');
+if(!_bootSymbol){
+  const _last = loadLastSymbol();
+  if(_last) state.symbol = _last;
+}
+initTheme();
 load();
 
 // --- info-tip overflow guard ---
@@ -3165,5 +3951,14 @@ load();
   document.addEventListener('focusin', adjustInfoTip);
 })();
 </script>
+<div id="maSheetOverlay" class="ma-sheet-overlay" ontouchend="closeMaSheet()"></div>
+<div id="maSheetPanel" class="ma-sheet-panel">
+  <div class="ma-sheet-handle"></div>
+  <div class="ma-sheet-title" id="maSheetTitle"></div>
+  <div class="ma-sheet-value" id="maSheetValue"></div>
+  <input type="range" class="ma-sheet-slider" id="maSheetSlider" min="1" max="500" step="1" oninput="onMaSheetSlider(this.value)">
+  <div class="ma-sheet-presets" id="maSheetPresets"></div>
+  <button class="ma-sheet-done" onclick="closeMaSheet()">完了</button>
+</div>
 </body>
 </html>
