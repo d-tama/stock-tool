@@ -1100,7 +1100,7 @@
   }
   /* iOS Safari: font-size<16px の入力欄にフォーカスすると自動ズームするため上書き */
   @media (hover:none) and (pointer:coarse){
-    input:not([readonly]), textarea, select{ font-size:16px !important; }
+    input, textarea, select{ font-size:16px !important; }
   }
 </style>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{});});}</script>
