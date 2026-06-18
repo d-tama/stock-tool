@@ -2494,12 +2494,12 @@ function openMaSheet(maIdx){
     ).join('');
   document.getElementById('maSheetOverlay').style.display = 'block';
   requestAnimationFrame(() => document.getElementById('maSheetPanel').classList.add('open'));
-  if(!_maSheetSwipeReady){ _maSheetSwipeReady = true; setupMaSheetSwipe(); }
+  if(!_maSheetSwipeReady){ _maSheetSwipeReady = true; setupSheetSwipe(document.getElementById('maSheetPanel'), closeMaSheet); }
 }
 
 function onMaSheetPreset(v){
   document.getElementById('maSheetSlider').value = v;
-  document.querySelectorAll('.ma-sheet-preset').forEach(b =>
+  document.querySelectorAll('#maSheetPresets .ma-sheet-preset').forEach(b =>
     b.classList.toggle('active', parseInt(b.textContent) === v)
   );
   onMaSheetSlider(v);
@@ -2514,25 +2514,21 @@ function closeMaSheet(){
   _maSheetIdx = null; _maSheetOrigVal = null;
 }
 
-function setupMaSheetSwipe(){
-  const panel = document.getElementById('maSheetPanel');
+function setupSheetSwipe(panel, closeFn){
   if(!panel) return;
 
-  // スマホ: touch イベント（passive:false で preventDefault 可能）
   let sy = null, sx = null, initiated = false;
   panel.addEventListener('touchstart', e => {
-    sy = e.touches[0].clientY;
-    sx = e.touches[0].clientX;
-    initiated = false;
-    panel.style.transition = 'none';
+    sy = e.touches[0].clientY; sx = e.touches[0].clientX;
+    initiated = false; panel.style.transition = 'none';
   }, {passive:true});
   panel.addEventListener('touchmove', e => {
     if(sy === null) return;
     const dy = e.touches[0].clientY - sy;
     const dx = Math.abs(e.touches[0].clientX - sx);
     if(!initiated){
-      if(Math.abs(dy) < 8) return;               // 動きが小さすぎる
-      if(dy < 0 || dx > dy){ sy = null; return; } // 上方向・横方向はキャンセル
+      if(Math.abs(dy) < 8) return;
+      if(dy < 0 || dx > dy){ sy = null; return; }
       initiated = true;
     }
     e.preventDefault();
@@ -2546,21 +2542,16 @@ function setupMaSheetSwipe(){
     if(wasInitiated && dy > 40){
       panel.style.transition = 'transform 0.2s ease';
       panel.style.transform = 'translateY(100%)';
-      setTimeout(() => closeMaSheet(), 180);
-    } else {
-      panel.style.transition = ''; panel.style.transform = '';
-    }
+      setTimeout(closeFn, 180);
+    } else { panel.style.transition = ''; panel.style.transform = ''; }
   }, {passive:true});
 
-  // PC: pointer イベント（マウスのみ。touch は上の touch イベントで処理）
   let startY = null;
   panel.addEventListener('pointerdown', e => {
     if(e.pointerType === 'touch') return;
     if(e.target.closest('input[type="range"], button')) return;
-    e.preventDefault();
-    startY = e.clientY;
-    panel.setPointerCapture(e.pointerId);
-    panel.style.transition = 'none';
+    e.preventDefault(); startY = e.clientY;
+    panel.setPointerCapture(e.pointerId); panel.style.transition = 'none';
   });
   panel.addEventListener('pointermove', e => {
     if(e.pointerType === 'touch' || startY === null) return;
@@ -2569,16 +2560,74 @@ function setupMaSheetSwipe(){
   });
   panel.addEventListener('pointerup', e => {
     if(e.pointerType === 'touch' || startY === null) return;
-    const dy = e.clientY - startY;
-    startY = null;
+    const dy = e.clientY - startY; startY = null;
     if(dy > 60){
       panel.style.transition = 'transform 0.2s ease';
       panel.style.transform = 'translateY(100%)';
-      setTimeout(() => closeMaSheet(), 180);
-    } else {
-      panel.style.transition = ''; panel.style.transform = '';
-    }
+      setTimeout(closeFn, 180);
+    } else { panel.style.transition = ''; panel.style.transform = ''; }
   });
+}
+
+// ---- 汎用数値ボトムシート ----
+let _numSheet = null, _numSheetSwipeReady = false;
+
+const NUM_SHEET_DEFS = {
+  setPeriod: () => {
+    const N = fullTimestamps.length;
+    const unit = state.interval==='1wk' ? '週' : state.interval==='1mo' ? 'か月' : isIntraday() ? '本' : '日';
+    return { title:'表示期間', min:5, max:N, current:state.period, setter:setPeriod, presets:periodOptions(), unit };
+  },
+  setVolLookback: () => {
+    const N = fullCloses.length;
+    return { title:'予測算出期間', min:10, max:N, current:state.volLookback, setter:setVolLookback, presets:volLookbackOptions(), unit:'日' };
+  },
+  setProjDays: () => ({
+    title:'予測期間', min:1, max:PROJ_DAYS_MAX, current:state.projDays, setter:setProjDays, presets:projDayOptions, unit:'日'
+  }),
+  setComparePeriod: () => ({
+    title:'比較期間', min:5, max:COMPARE_DAYS_MAX, current:state.comparePeriod, setter:setComparePeriod, presets:COMPARE_PERIOD_OPTIONS, unit:'日'
+  }),
+};
+
+function openNumSheet(key){
+  const def = NUM_SHEET_DEFS[key]();
+  _numSheet = { setter:def.setter, originalVal:def.current, unit:def.unit };
+  document.getElementById('numSheetTitle').textContent = `${def.title} — ${def.min}〜${def.max}${def.unit}`;
+  document.getElementById('numSheetValue').textContent = `${def.current}${def.unit}`;
+  const slider = document.getElementById('numSheetSlider');
+  slider.min = def.min; slider.max = def.max; slider.value = def.current;
+  document.getElementById('numSheetPresets').innerHTML = def.presets
+    .map(p => `<button class="ma-sheet-preset${p.days===def.current?' active':''}" data-days="${p.days}" onclick="onNumSheetPreset(${p.days})">${p.label}</button>`)
+    .join('');
+  document.getElementById('numSheetOverlay').style.display = 'block';
+  requestAnimationFrame(() => document.getElementById('numSheetPanel').classList.add('open'));
+  if(!_numSheetSwipeReady){ _numSheetSwipeReady = true; setupSheetSwipe(document.getElementById('numSheetPanel'), closeNumSheet); }
+}
+
+function onNumSheetSlider(v){
+  if(!_numSheet) return;
+  const val = parseInt(v);
+  document.getElementById('numSheetValue').textContent = `${val}${_numSheet.unit}`;
+  document.querySelectorAll('#numSheetPresets .ma-sheet-preset').forEach(b =>
+    b.classList.toggle('active', +b.dataset.days === val)
+  );
+}
+
+function onNumSheetPreset(v){
+  document.getElementById('numSheetSlider').value = v;
+  onNumSheetSlider(v);
+}
+
+function closeNumSheet(){
+  if(!_numSheet) return;
+  const panel = document.getElementById('numSheetPanel');
+  panel.style.transform = '';
+  panel.classList.remove('open');
+  document.getElementById('numSheetOverlay').style.display = 'none';
+  const finalVal = parseInt(document.getElementById('numSheetSlider').value);
+  if(finalVal !== _numSheet.originalVal) _numSheet.setter(finalVal);
+  _numSheet = null;
 }
 
 function onMaSheetSlider(v){
@@ -2857,13 +2906,7 @@ function renderCompare(){
   const periodPills = COMPARE_PERIOD_OPTIONS.map(o=>
     `<button class="pill ${o.days===state.comparePeriod?'active':''}" onclick="setComparePeriod(${o.days})">${o.label}</button>`
   ).join('');
-  const customPeriodInput = `
-    <span class="custom-input">
-      <input type="number" min="5" max="${COMPARE_DAYS_MAX}" step="1" value="${state.comparePeriod}"
-        onkeydown="if(event.key==='Enter') this.blur();"
-        onchange="setComparePeriod(parseInt(this.value,10)||${state.comparePeriod})">
-      <span>日（任意）</span>
-    </span>`;
+  const customPeriodInput = `<button class="pill" onclick="openNumSheet('setComparePeriod')">任意</button>`;
 
   const compareChip = p=>{
     const idx = state.compareSymbols.indexOf(p.symbol);
@@ -2993,13 +3036,8 @@ function renderControls(){
   ).join('');
 
   const N = fullTimestamps.length;
-  const customInput = (current, max, setter, unit) => `
-    <span class="custom-input">
-      <input type="number" min="1" max="${max}" step="1" value="${current}"
-        onkeydown="if(event.key==='Enter') this.blur();"
-        onchange="${setter}(parseInt(this.value,10)||${current})">
-      <span>${unit}</span>
-    </span>`;
+  const customInput = (current, max, setter, unit) =>
+    `<button class="pill" onclick="openNumSheet('${setter}')">任意</button>`;
 
   const periodUnit = state.interval==='1wk' ? '週（任意）' : state.interval==='1mo' ? 'か月（任意）' : isIntraday() ? '本（任意）' : '日（任意）';
 
@@ -3697,7 +3735,7 @@ function render(){
       <div class="ctrl-row" style="margin-top:10px;">
         <span class="ctrl-label">算出期間</span>
         ${volLookbackOptions().map(o=>`<button class="pill ${o.days===state.volLookback?'active':''}" onclick="setVolLookback(${o.days})">${o.label}</button>`).join('')}
-        <span class="custom-input"><input type="number" min="1" max="${N}" step="1" value="${state.volLookback}" onkeydown="if(event.key==='Enter') this.blur();" onchange="setVolLookback(parseInt(this.value,10)||${state.volLookback})"><span>日（任意）</span></span>
+        <button class="pill" onclick="openNumSheet('setVolLookback')">任意</button>
       </div>
       <div class="scenario-note">
         σ（シグマ）は上記の「算出期間」（${state.volLookback}日）から計算した1日あたりの変動率です。±1σ・±2σは、過去と同程度の変動が続いた場合に統計的に到達しうる価格の目安であり、実際にその価格まで動く・約定する保証はありません。指値の発注は、ご自身の判断と責任で行ってください。
@@ -3979,6 +4017,15 @@ load();
   <input type="range" class="ma-sheet-slider" id="maSheetSlider" min="1" max="500" step="1" oninput="onMaSheetSlider(this.value)">
   <div class="ma-sheet-presets" id="maSheetPresets"></div>
   <button class="ma-sheet-done" onclick="closeMaSheet()">完了</button>
+</div>
+<div id="numSheetOverlay" class="ma-sheet-overlay" ontouchend="closeNumSheet()"></div>
+<div id="numSheetPanel" class="ma-sheet-panel">
+  <div class="ma-sheet-handle"></div>
+  <div class="ma-sheet-title" id="numSheetTitle"></div>
+  <div class="ma-sheet-value" id="numSheetValue"></div>
+  <input type="range" class="ma-sheet-slider" id="numSheetSlider" min="1" max="1825" step="1" oninput="onNumSheetSlider(this.value)">
+  <div class="ma-sheet-presets" id="numSheetPresets"></div>
+  <button class="ma-sheet-done" onclick="closeNumSheet()">完了</button>
 </div>
 </body>
 </html>
