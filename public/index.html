@@ -2437,6 +2437,10 @@ function removeWatch(ev, symbol){
   watchlist = watchlist.filter(w=>w.symbol!==symbol);
   saveWatchlist();
   renderWatchlist();
+  if(symbol === state.symbol){
+    const btn = document.querySelector('.watch-btn');
+    if(btn){ btn.classList.remove('active'); btn.textContent = '☆ ウォッチリストに追加'; }
+  }
 }
 
 function renderWatchlist(){
