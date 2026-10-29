@@ -989,6 +989,14 @@
   .hero-watch .watch-empty-hint{text-align:left; padding:0;}
   .hero-watch .watch-grid{display:flex; flex-wrap:nowrap; gap:10px; overflow-x:auto; scrollbar-width:thin; padding:2px 2px 6px;}
   .hero-watch .watch-card{flex:0 0 168px; min-width:168px;}
+  /* カードの下段：前日比と、その銘柄の総合判定 */
+  .watch-foot{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:2px;}
+  .watch-foot .watch-chg{margin-top:0;}
+  .watch-verdict{font-size:10px; font-weight:700; letter-spacing:.04em; padding:1px 6px; border-radius:4px; white-space:nowrap;}
+  .watch-verdict:empty{display:none;}
+  .watch-verdict.buy{color:var(--indigo); background:color-mix(in srgb, var(--indigo) 15%, transparent);}
+  .watch-verdict.sell{color:var(--vermillion); background:color-mix(in srgb, var(--vermillion) 15%, transparent);}
+  .watch-verdict.neutral{color:var(--ink-soft); background:color-mix(in srgb, var(--ink-soft) 15%, transparent);}
   .mini-verdict{display:none;}
   @media(max-width:1023px){
     /* スマホ・タブレット：価格の右にも判子（1画面目で判定が見えるように）。判定カードの判子は少し小さく */
@@ -1429,6 +1437,15 @@ let meta = {};
 let intervalAutoFallback = false;
 let fngData = null;
 let fundamentals = null;
+// 判定・根拠・指値・市場心理は、チャートの足（分足・週足など）に関係なく常に日足で計算する
+// dailyCache.closes は日足表示中は fullCloses と同じ配列（ライブ更新がそのまま反映される）
+let dailyCache = null; // {symbol, closes}
+function analysisCloses(){
+  if(state.interval === '1d') return fullCloses;
+  if(dailyCache && dailyCache.symbol === state.symbol && dailyCache.closes.length >= 30) return dailyCache.closes;
+  return fullCloses; // 日足が取れなかったときだけ表示中の足で代用
+}
+const analysisIsDaily = () => state.interval === '1d' || analysisCloses() !== fullCloses;
 let quote = null;            // リアルタイム気配（/api/quote）
 let quoteTimer = null;       // 自動更新タイマー
 let lastQuotePrice = null;   // 直近価格（変化方向の判定用）
@@ -2093,7 +2110,12 @@ const currentValueLinePlugin = {
     const lineColor = opts.color || getCSSVar('--ink');
     const paperColor = getCSSVar('--paper');
     const axisW = yScale.width || 60;
-    const bx = 1, bw = axisW - 2;
+    // 箱は目盛りの幅を基本に、文字が入りきらないときは文字に合わせて広げる（切れて見えないように）
+    ctx.save();
+    ctx.font = '700 10px JetBrains Mono, monospace';
+    const textW = ctx.measureText(opts.label || '').width;
+    ctx.restore();
+    const bx = 1, bw = Math.max(axisW - 2, Math.ceil(textW) + 10);
     ctx.save();
     ctx.beginPath();
     ctx.setLineDash([5,4]);
@@ -2478,7 +2500,21 @@ function applyQuote(){
 
 // チャートを触っている間（と触り終えて少しの間）は、自動更新でチャートを作り直さない
 // （作り直すと指の下のチャートが差し替わり、カクっと動くため。次の自動更新でまとめて反映する）
-let chartBusyUntil = 0, _liveDeferred = false;
+let chartBusyUntil = 0, _liveDeferred = false, _lastFullRender = 0;
+// 価格チャートの最後の足だけを今の価格にする（ズーム・パンの位置はそのまま）
+function lightLiveUpdate(price){
+  const pc = Chart.getChart('priceChart');
+  if(!pc) return;
+  const i = fullCloses.length - 1;
+  pc.data.datasets.forEach(ds => {
+    if(ds.label === '価格') ds.data[i] = price;
+    else if(ds.label === '_high' && ds.data[i] != null) ds.data[i] = Math.max(ds.data[i], price);
+    else if(ds.label === '_low' && ds.data[i] != null) ds.data[i] = Math.min(ds.data[i], price);
+  });
+  const d = pc.candlestickData && pc.candlestickData[i];
+  if(d){ d.c = price; d.h = Math.max(d.h ?? price, price); d.l = Math.min(d.l ?? price, price); }
+  pc.update('none');
+}
 function markChartBusy(){ chartBusyUntil = Date.now() + 4000; }
 const isChartBusy = () => Date.now() < chartBusyUntil;
 
@@ -2489,12 +2525,24 @@ function liveRefresh(){
   const changed = quote.price !== lastQuotePrice;
   if(live && (changed || _liveDeferred) && fullCloses.length){
     fullCloses[fullCloses.length-1] = quote.price;  // 最終足の終値を更新
+    const dc = analysisCloses();
+    if(dc !== fullCloses) dc[dc.length-1] = quote.price; // 判定用の日足も今日の終値を更新
     if(fullHighs.length) fullHighs[fullHighs.length-1] = Math.max(fullHighs[fullHighs.length-1] ?? quote.price, quote.price);
     if(fullLows.length) fullLows[fullLows.length-1] = Math.min(fullLows[fullLows.length-1] ?? quote.price, quote.price);
   }
-  if(live && (changed || _liveDeferred) && fullCloses.length && isChartBusy()){
-    _liveDeferred = true;
-  } else if(live && (changed || _liveDeferred) && fullCloses.length){
+  // ふだんはチャートの最後の1点だけ差し替える（全部作り直すと重く、触っている最中に動くため）。
+  // 判定が変わりそうなとき・前回の作り直しから1分たったときだけ、全体を作り直す（触っている間は待つ）
+  let wantFull = false;
+  if(live && (changed || _liveDeferred) && fullCloses.length){
+    const v = quickVerdict(analysisCloses(), state.maDays);
+    wantFull = _liveDeferred || !v || v.text !== lastStampText || Date.now() - _lastFullRender > 60000;
+    if(!wantFull || isChartBusy()){
+      lightLiveUpdate(quote.price);
+      if(wantFull) _liveDeferred = true;
+      wantFull = false;
+    }
+  }
+  if(wantFull){
     _liveDeferred = false;
     // ユーザーがズーム/パンしていた表示範囲を再描画後も維持する
     const pc = Chart.getChart('priceChart');
@@ -2656,8 +2704,16 @@ async function load(){
                 : ['5m','15m','30m'].includes(state.interval) ? '1mo' // 3mo は Yahoo が 422 を返す（分足は60日まで）
                 : state.interval === '1m' ? '5d'
                 : '10y';
-    let data = await fetchChart(state.symbol, range, state.interval);
+    // 日足以外を表示するときは、判定用の日足も（同じ銘柄でまだ持っていなければ）一緒に取る
+    const needDaily = state.interval !== '1d' && !(dailyCache && dailyCache.symbol === state.symbol);
+    const [mainRes, dailyRes] = await Promise.all([
+      fetchChart(state.symbol, range, state.interval),
+      needDaily ? fetchChart(state.symbol, '10y', '1d').catch(() => null) : Promise.resolve(null),
+    ]);
+    let data = mainRes;
     if(seq !== _loadSeq) return; // 期間を続けて押したとき、古い取得結果は捨てる
+    if(dailyRes && dailyRes.closes) dailyCache = {symbol: state.symbol, closes: dailyRes.closes};
+    else if(needDaily) dailyCache = null;
     // 新規上場銘柄などで日足のデータが少なすぎる場合、1時間足に自動切替する
     if(data.closes.length < 30 && state.interval === '1d'){
       const fallback = await fetchChart(state.symbol, '2y', '60m');
@@ -2673,6 +2729,7 @@ async function load(){
     fullTimestamps = data.timestamps;
     fullOpens = data.opens || [];
     fullCloses = data.closes;
+    if(state.interval === '1d') dailyCache = {symbol: state.symbol, closes: fullCloses};
     fullHighs = data.highs || [];
     fullLows = data.lows || [];
     fullVolumes = data.volumes || [];
@@ -2706,7 +2763,7 @@ async function load(){
   if(state.periodKey && !intervalAutoFallback) state.period = periodBars(periodDef(state.periodKey));
   if(intervalAutoFallback) state.periodKey = null;
   if(state.period > N) state.period = N;
-  if(state.volLookback > N) state.volLookback = N;
+  if(state.volLookback > analysisCloses().length) state.volLookback = analysisCloses().length;
 
   // 暗号資産の場合のみ市場心理（Fear & Greed Index）を取得（取得失敗は無視）
   fngData = null;
@@ -2728,6 +2785,8 @@ async function load(){
   if(quote && quote.price != null &&
      (quote.marketState === 'REGULAR' || meta.instrumentType === 'CRYPTOCURRENCY')){
     fullCloses[fullCloses.length-1] = quote.price;
+    const dc = analysisCloses();
+    if(dc !== fullCloses) dc[dc.length-1] = quote.price;
   }
   if(seq !== _loadSeq) return;
 
@@ -2882,7 +2941,7 @@ function periodLabel(dispN){
 }
 
 function volLookbackOptions(){
-  const N = fullCloses.length;
+  const N = analysisCloses().length; // 算出期間は判定用の日足の日数
   const raw = [
     {label:'90日', days:90},
     {label:'180日', days:180},
@@ -2928,7 +2987,12 @@ function setPeriodKey(k){
   // 先に描画してツールバーを差し込み直し、そのあとボタンを作り直す（つまみが滑るように）
   render(); renderControls(); updateURL();
 }
-function setShowProjection(v){ state.showProjection = v; renderControls(); render(); }
+function setShowProjection(v){ state.showProjection = v; if(v) state.seriesVisible.proj = true; renderControls(); render(); }
+// 「線」の行の予測ボタン：日足でないときは黙って効かないのではなく、出せる条件を伝える
+function toggleProjection(){
+  if(state.interval !== '1d'){ toast('予測は日足のときに出せます（期間を1か月〜1年に）'); return; }
+  setShowProjection(!state.showProjection);
+}
 function setYScale(s){ state.yScale = s; renderControls(); render(); }
 function setChartType(t){
   if(state.chartType === t) return;
@@ -2964,7 +3028,7 @@ function setChartInterval(iv){
   load();
 }
 function setVolLookback(d){
-  const N = fullCloses.length;
+  const N = analysisCloses().length;
   state.volLookback = Math.min(Math.max(10, d), N);
   renderControls(); render();
 }
@@ -3030,7 +3094,7 @@ function renderWatchlist(){
             <div class="watch-name" title="${w.name}">${w.name}</div>
             <svg class="watch-sparkline" id="spark-${cssSafe(w.symbol)}" viewBox="0 0 120 36" preserveAspectRatio="none"></svg>
             <div class="watch-price" id="wprice-${cssSafe(w.symbol)}">…</div>
-            <div class="watch-chg" id="wchg-${cssSafe(w.symbol)}"></div>
+            <div class="watch-foot"><div class="watch-chg" id="wchg-${cssSafe(w.symbol)}"></div><span class="watch-verdict" id="wverdict-${cssSafe(w.symbol)}"></span></div>
           </div>
         `).join('')}
       </div>`;
@@ -3195,7 +3259,7 @@ const NUM_SHEET_DEFS = {
     return { title:'表示期間', min:5, max:N, current:state.period, setter:setPeriod, presets:periodOptions(), unit };
   },
   setVolLookback: () => {
-    const N = fullCloses.length;
+    const N = analysisCloses().length;
     return { title:'予測算出期間', min:10, max:N, current:state.volLookback, setter:setVolLookback, presets:volLookbackOptions(), unit:'日' };
   },
   setProjDays: () => ({
@@ -3471,17 +3535,47 @@ function renderSparklineSvg(id, closes){
   if(card){ card.classList.toggle('trend-up', isUp); card.classList.toggle('trend-down', !isUp); }
 }
 
+// 総合判定と同じ基準で、日足の終値だけから判定する（ウォッチリストのカード用）
+function quickVerdict(closes, maDays){
+  const n = closes.length - 1;
+  if(n < 30) return null;
+  const p = closes[n];
+  const m25 = sma(closes, maDays[0])[n], m75 = sma(closes, maDays[1])[n], m200 = sma(closes, maDays[2])[n];
+  const r = rsi(closes, 14)[n];
+  const bb = bollinger(closes, 20, 2);
+  const up = bb.upper[n], lo = bb.lower[n];
+  const md = macd(closes), mc = md.macdLine[n], sg = md.signalLine[n];
+  const cls = [];
+  cls.push(m200 && m75 && p > m25 && m25 > m75 && m75 > m200 ? 'buy' : m200 && m75 && p < m25 && m25 < m75 && m75 < m200 ? 'sell' : 'neutral');
+  cls.push(r < 30 ? 'buy' : r > 70 ? 'sell' : 'neutral');
+  const pb = (up != null && lo != null && up !== lo) ? (p - lo) / (up - lo) : null;
+  cls.push(pb == null ? 'neutral' : pb < 0 ? 'buy' : pb > 1 ? 'sell' : 'neutral');
+  cls.push(mc != null && sg != null && mc > sg && mc > 0 ? 'buy' : mc != null && sg != null && mc < sg && mc < 0 ? 'sell' : 'neutral');
+  const dist = m200 ? (p - m200) / m200 * 100 : null;
+  cls.push(dist == null ? 'neutral' : dist < -8 ? 'buy' : dist > 12 ? 'sell' : 'neutral');
+  const score = cls.filter(c => c === 'buy').length - cls.filter(c => c === 'sell').length;
+  return score >= 2 ? {text:'注目', cls:'buy'} : score <= -2 ? {text:'過熱注意', cls:'sell'} : {text:'様子見', cls:'neutral'};
+}
+
+// 線グラフと判定は全銘柄を同時に取りに行く（順番に待つと7銘柄で数秒かかっていた）。
+// 取れた日足は10分間覚えておき、ウォッチリストを描き直すたびに取り直さない
+const sparkCache = {};
 async function loadWatchlistSparklines(){
   if(!watchlist.length) return;
-  for(const w of watchlist){
+  await Promise.all(watchlist.map(async w => {
     try{
-      const data = await fetchChart(w.symbol, '3mo', '1d');
-      if(data && data.closes.length >= 2){
-        const closes = data.closes.slice(-60);
-        renderSparklineSvg(cssSafe(w.symbol), closes);
+      // 表示中の銘柄は、判定用に持っている最新の日足をそのまま使う（本体の判定と食い違わないように）
+      const own = (dailyCache && dailyCache.symbol === w.symbol) ? dailyCache.closes : null;
+      let c = own ? {closes: own} : sparkCache[w.symbol];
+      if(!c || (!own && Date.now() - c.t > 600000)){
+        c = sparkCache[w.symbol] = {t: Date.now(), closes: (await fetchChart(w.symbol, '2y', '1d')).closes};
       }
+      if(c.closes.length >= 2) renderSparklineSvg(cssSafe(w.symbol), c.closes.slice(-60));
+      const v = quickVerdict(c.closes, state.maDays);
+      const el = document.getElementById('wverdict-' + cssSafe(w.symbol));
+      if(el && v){ el.textContent = v.text; el.className = 'watch-verdict ' + v.cls; }
     }catch(e){}
-  }
+  }));
 }
 
 // ウォッチリストの価格・前日比をライブ更新（パネルは作り直さず値だけ差し替え）
@@ -4015,6 +4109,7 @@ function playIntro(){
 }
 
 function render(){
+  _lastFullRender = Date.now();
   const T = getChartTheme();
   // 前回の Chart インスタンスを破棄（detached canvas の参照リーク防止）
   mainCharts.forEach(c=>{ try{ c.destroy(); }catch(e){} });
@@ -4028,6 +4123,7 @@ function render(){
   const chgClass = change>=0 ? 'up' : 'down';
   const chgSign = change>=0 ? '+' : '';
 
+  // チャートに描く線（表示中の足で計算）
   const ma25Full = sma(fullCloses, state.maDays[0]);
   const ma75Full = sma(fullCloses, state.maDays[1]);
   const ma200Full = sma(fullCloses, state.maDays[2]);
@@ -4035,14 +4131,26 @@ function render(){
   const bbFull = bollinger(fullCloses, 20, 2);
   const macdFull = macd(fullCloses);
 
-  const curMA25 = ma25Full[last];
-  const curMA75 = ma75Full[last];
-  const curMA200 = ma200Full[last];
-  const curRSI = rsiFull[last];
-  const curBBUpper = bbFull.upper[last];
-  const curBBLower = bbFull.lower[last];
-  const curMACD = macdFull.macdLine[last];
-  const curSignal = macdFull.signalLine[last];
+  // 判定・根拠・指値・市場心理に使う値（常に日足。日足表示中は上と同じ配列）
+  const aC = analysisCloses();
+  const aDaily = analysisIsDaily();
+  const aLast = aC.length - 1;
+  const aPrice = aC[aLast];
+  const sameSeries = aC === fullCloses;
+  const aMA25 = sameSeries ? ma25Full : sma(aC, state.maDays[0]);
+  const aMA75 = sameSeries ? ma75Full : sma(aC, state.maDays[1]);
+  const aMA200 = sameSeries ? ma200Full : sma(aC, state.maDays[2]);
+  const aRSI = sameSeries ? rsiFull : rsi(aC, 14);
+  const aBB = sameSeries ? bbFull : bollinger(aC, 20, 2);
+  const aMACD = sameSeries ? macdFull : macd(aC);
+  const curMA25 = aMA25[aLast];
+  const curMA75 = aMA75[aLast];
+  const curMA200 = aMA200[aLast];
+  const curRSI = aRSI[aLast];
+  const curBBUpper = aBB.upper[aLast];
+  const curBBLower = aBB.lower[aLast];
+  const curMACD = aMACD.macdLine[aLast];
+  const curSignal = aMACD.signalLine[aLast];
 
   // --- ヒーロー（銘柄・価格・前日比・期間の騰落） ---
   const watched = isWatched(state.symbol);
@@ -4068,10 +4176,10 @@ function render(){
 
   // --- 1. 移動平均トレンド ---
   let maSignal, maTag, maTagClass;
-  if(curMA200 && curMA75 && lastPrice > curMA25 && curMA25 > curMA75 && curMA75 > curMA200){
+  if(curMA200 && curMA75 && aPrice > curMA25 && curMA25 > curMA75 && curMA75 > curMA200){
     maSignal = '上昇トレンド（短期線が長期線の上に整列）';
     maTagClass='buy'; maTag='強い';
-  } else if(curMA200 && curMA75 && lastPrice < curMA25 && curMA25 < curMA75 && curMA75 < curMA200){
+  } else if(curMA200 && curMA75 && aPrice < curMA25 && curMA25 < curMA75 && curMA75 < curMA200){
     maSignal = '下降トレンド（短期線が長期線の下に整列）';
     maTagClass='sell'; maTag='弱い';
   } else {
@@ -4095,7 +4203,7 @@ function render(){
   // --- 3. ボリンジャーバンド ---
   let bbNote, bbTag, bbTagClass, percentB=null;
   if(curBBUpper!=null && curBBLower!=null && curBBUpper!==curBBLower){
-    percentB = (lastPrice - curBBLower) / (curBBUpper - curBBLower);
+    percentB = (aPrice - curBBLower) / (curBBUpper - curBBLower);
     if(percentB < 0){
       bbNote = '-2σ（下限バンド）を下回る位置（売られ過ぎの可能性）';
       bbTag='バンド下抜け'; bbTagClass='buy';
@@ -4133,7 +4241,7 @@ function render(){
   }
 
   // --- 5. 200日線との距離 ---
-  const distMA200 = curMA200 ? ((lastPrice-curMA200)/curMA200)*100 : null;
+  const distMA200 = curMA200 ? ((aPrice-curMA200)/curMA200)*100 : null;
   let distNote, distTag, distTagClass;
   if(distMA200 !== null){
     if(distMA200 < -8){
@@ -4198,7 +4306,7 @@ function render(){
   // --- 統計的シナリオ予測（モンテカルロ法） ---
   const showProj = state.showProjection;
   const pDays = showProj ? state.projDays : 0;   // チャートを未来に延ばす日数
-  const volCloses = fullCloses.slice(-state.volLookback);
+  const volCloses = aC.slice(-state.volLookback); // 指値の目安・予測は日足の変動率から
   const proj = getProjection(volCloses);
   const lastTs = fullTimestamps[last];
   const futLabels = showProj ? futureLabels(lastTs, state.projDays, true) : [];
@@ -4308,10 +4416,10 @@ function render(){
     const spread = dailyStd*Math.sqrt(h);
     return {
       days: h,
-      sell2: lastPrice*Math.exp(2*spread),
-      sell1: lastPrice*Math.exp(1*spread),
-      buy1: lastPrice*Math.exp(-1*spread),
-      buy2: lastPrice*Math.exp(-2*spread),
+      sell2: aPrice*Math.exp(2*spread),
+      sell1: aPrice*Math.exp(1*spread),
+      buy1: aPrice*Math.exp(-1*spread),
+      buy2: aPrice*Math.exp(-2*spread),
     };
   });
 
@@ -4440,12 +4548,13 @@ function render(){
   const sigRow = (name, value, tag, tagClass, lines, about) => `
     <details class="sig"><summary><span class="nm">${name}</span><span class="val">${value}</span><span class="tag ${tagClass}">${tag}</span>${sigChev}</summary>
       <div class="body">${lines.map(l=>`<p>${l}</p>`).join('')}<p>${about}</p></div></details>`;
-  const mu = barUnit() === '本' ? '本' : barUnit(); // 移動平均の単位（日・週・か月・本）
+  const mu = barUnit() === '本' ? '本' : barUnit(); // チャートの移動平均の単位（日・週・か月・本）
+  const amu = aDaily ? '日' : mu;                      // 判定の根拠の単位（ふつうは日足なので「日」）
   const indicatorsPanelHTML = `
     <div class="panel" id="sec-indicators">
       <div class="section-title">判定の根拠</div>
       ${sigRow('移動平均線', fmtPrice(lastPrice), maTag, maTagClass, [
-        `<span class="sub">${state.maDays[0]}${mu} ${curMA25?fmtPrice(curMA25):'--'}／${state.maDays[1]}${mu} ${curMA75?fmtPrice(curMA75):'--'}／${state.maDays[2]}${mu} ${curMA200?fmtPrice(curMA200):'--'}</span>`, maSignal],
+        `<span class="sub">${state.maDays[0]}${amu} ${curMA25?fmtPrice(curMA25):'--'}／${state.maDays[1]}${amu} ${curMA75?fmtPrice(curMA75):'--'}／${state.maDays[2]}${amu} ${curMA200?fmtPrice(curMA200):'--'}</span>`, maSignal],
         '一定期間の価格の平均値を結んだ線。短期線が長期線を上抜く（ゴールデンクロス）と上昇トレンド入り、下抜く（デッドクロス）と下降トレンド入りのサインとされます。')}
       ${sigRow('RSI（14）', curRSI!==null?curRSI.toFixed(1):'--', rsiTag, rsiTagClass, [rsiNote],
         '価格の上昇・下落の勢いを0〜100で示す指標。一般的に70以上は「買われすぎ」、30以下は「売られすぎ」の目安とされます。')}
@@ -4455,7 +4564,7 @@ function render(){
       ${sigRow('MACD', curMACD!==null?curMACD.toFixed(2):'--', macdTag, macdTagClass, [
         `<span class="sub">シグナル ${curSignal!==null?curSignal.toFixed(2):'--'}</span>`, macdNote],
         '短期と長期の移動平均線の差から勢いの変化をとらえる指標。MACD線がシグナル線を上抜くと買いシグナル、下抜くと売りシグナルとされます。')}
-      ${sigRow(`${state.maDays[2]}${mu}線との距離`, distMA200!==null ? (distMA200>=0?'+':'')+distMA200.toFixed(1)+'%' : '--', distTag, distTagClass, [distNote],
+      ${sigRow(`${state.maDays[2]}${amu}線との距離`, distMA200!==null ? (distMA200>=0?'+':'')+distMA200.toFixed(1)+'%' : '--', distTag, distTagClass, [distNote],
         '現在の価格が長期移動平均線からどれだけ離れているかを示す割合。長期的な上昇/下降トレンドからの位置や、行き過ぎの度合いを見る目安になります。')}
     </div>`;
 
@@ -4479,7 +4588,7 @@ function render(){
         <button class="leg leg-band ${state.seriesVisible.bb?'':'off'}" data-series="bb" onclick="toggleSeries('bb')">ボリンジャーバンド</button>
         ${hasVolume ? `<button class="leg leg-vwap ${state.seriesVisible.vwap?'':'off'}" data-series="vwap" onclick="toggleSeries('vwap')">VWAP</button>` : ''}
         ${hi52!==null ? `<button class="leg leg-hl52 ${state.seriesVisible.hl52?'':'off'}" data-series="hl52" onclick="toggleSeries('hl52')">52週高安</button>` : ''}
-        ${showProj ? `<button class="leg leg-median ${state.seriesVisible.proj?'':'off'}" data-series="proj" onclick="toggleSeries('proj')">予測レンジ</button>` : ''}
+        <button class="leg leg-median ${showProj && state.seriesVisible.proj ? '' : 'off'}" onclick="toggleProjection()" title="過去の値動きから統計的な幅を出します（日足のとき）">予測</button>
       </div>
       <div class="chart-actions">
         <span class="legend-hint">${zoomHintText()}・ドラッグで移動</span>
@@ -4556,7 +4665,7 @@ function render(){
         <span>中立<b>${neutralCount}</b></span>
         <span>過熱側<b style="color:var(--vermillion)">${sellCount}</b></span>
       </div>
-      <div class="basis-note">${intervalLabel()}の終値から計算しています。根拠は「判定の根拠」で確認できます。</div>
+      <div class="basis-note">${aDaily ? '日足' : intervalLabel()}の終値から計算しています${aDaily && state.interval !== '1d' ? '（チャートの足に関係なく日足で判定）' : ''}。根拠は「判定の根拠」で確認できます。</div>
     </div>`;
 
   const volumePanelHTML = `
@@ -4608,13 +4717,13 @@ function render(){
       <div class="section-title">オシレーター（RSI / MACD）</div>
       <div class="osc-grid">
         <div>
-          <div class="osc-title">RSI（14日）${infoTip('Relative Strength Indexの略。直近14日間の値動きから、上昇と下落どちらの勢いが強いかを0〜100で示す指標です。70以上は「買われすぎ」、30以下は「売られすぎ」とされ、行き過ぎた相場の反転を察知する目安に使われます。')}<span class="osc-now">現在 ${curRSI!==null?curRSI.toFixed(1):'--'}</span></div>
+          <div class="osc-title">RSI（14日）${infoTip('Relative Strength Indexの略。直近14日間の値動きから、上昇と下落どちらの勢いが強いかを0〜100で示す指標です。70以上は「買われすぎ」、30以下は「売られすぎ」とされ、行き過ぎた相場の反転を察知する目安に使われます。')}<span class="osc-now">現在 ${rsiFull[last]!=null?rsiFull[last].toFixed(1):'--'}</span></div>
           ${isTouchOnly ? '<div class="chart-hover-bar touch-bar" id="rsiHoverBar"></div>' : ''}
           <div class="chart-box small"><canvas id="rsiChart"></canvas></div>
           ${isTouchOnly ? `<div class="chart-scrubber-wrap touch-scrubber"><span class="chart-scrubber-label">◀</span><input type="range" id="rsiScrubber" min="0" max="0" value="0" oninput="onSubScrubber(this)"><span class="chart-scrubber-label">▶</span></div>` : ''}
         </div>
         <div>
-          <div class="osc-title">MACD（12,26,9）${infoTip('Moving Average Convergence Divergenceの略。短期（12日）と長期（26日）の移動平均線の差（MACD線）と、その移動平均（シグナル線・9日）を組み合わせたトレンド系指標です。MACD線がシグナル線を上に抜けると買いシグナル、下に抜けると売りシグナルとされます。')}<span class="osc-now">現在 ${curMACD!==null?curMACD.toFixed(2):'--'} / シグナル ${curSignal!==null?curSignal.toFixed(2):'--'}</span></div>
+          <div class="osc-title">MACD（12,26,9）${infoTip('Moving Average Convergence Divergenceの略。短期（12日）と長期（26日）の移動平均線の差（MACD線）と、その移動平均（シグナル線・9日）を組み合わせたトレンド系指標です。MACD線がシグナル線を上に抜けると買いシグナル、下に抜けると売りシグナルとされます。')}<span class="osc-now">現在 ${macdFull.macdLine[last]!=null?macdFull.macdLine[last].toFixed(2):'--'} / シグナル ${macdFull.signalLine[last]!=null?macdFull.signalLine[last].toFixed(2):'--'}</span></div>
           ${isTouchOnly ? '<div class="chart-hover-bar touch-bar" id="macdHoverBar"></div>' : ''}
           <div class="chart-box small"><canvas id="macdChart"></canvas></div>
           ${isTouchOnly ? `<div class="chart-scrubber-wrap touch-scrubber"><span class="chart-scrubber-label">◀</span><input type="range" id="macdScrubber" min="0" max="0" value="0" oninput="onSubScrubber(this)"><span class="chart-scrubber-label">▶</span></div>` : ''}
@@ -4678,7 +4787,7 @@ function render(){
       onHover: (e, els) => heroScrub(els.length ? els[0].index : null),
       plugins:{
         legend:{display:false},
-        currentValueLine:{ value:lastPrice, label:'現在 '+fmtPrice(lastPrice), color:T.ink },
+        currentValueLine:{ value:lastPrice, label:fmtPrice(lastPrice), color:T.ink },
         tooltip: isTouchOnly
           ? { enabled:false, external: updatePriceHoverBar }
           : tooltipTheme((item)=>{
