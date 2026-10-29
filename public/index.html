@@ -991,12 +991,14 @@
   .hero-watch .watch-card{flex:0 0 168px; min-width:168px;}
   .mini-verdict{display:none;}
   @media(max-width:1023px){
-    /* スマホ・タブレット：価格の右に判子。判定カードの大きな判子は出さず、判子は常に1つ */
+    /* スマホ・タブレット：価格の右にも判子（1画面目で判定が見えるように）。判定カードの判子は少し小さく */
     .mini-verdict{display:flex; flex-direction:column; align-items:center; gap:6px; text-decoration:none; color:inherit; align-self:center;}
     .mini-verdict .lbl{font-size:10.5px; color:var(--ink-soft); letter-spacing:.08em; white-space:nowrap;}
     .stamp.sm{width:74px; height:74px; font-size:15px; border-width:4px;}
     .stamp.sm::after{inset:5px;}
-    .verdict-main > .stamp{display:none;}
+    #sec-verdict .verdict-main{gap:14px;}
+    #sec-verdict .verdict-main > .stamp{width:88px; height:88px; font-size:17px; border-width:4px; flex-shrink:0;}
+    #sec-verdict .verdict-main > .stamp::after{inset:5px;}
     .hero .chg-row{flex-wrap:wrap; white-space:normal;}
   }
   @media(max-width:1023px){
@@ -2325,6 +2327,38 @@ function syncXRange(min, max){
   }
 }
 
+// 横移動・拡大縮小の途中でも目盛りと他のチャートを合わせ続ける（離した瞬間にまとめて動かない）
+let _syncRaf = 0;
+function liveSync(chart){
+  markChartBusy();
+  if(_syncRaf) return;
+  _syncRaf = requestAnimationFrame(() => {
+    _syncRaf = 0;
+    if(chart.scales && chart.scales.x) syncXRange(chart.scales.x.min, chart.scales.x.max);
+  });
+}
+
+// スマホ：指が横に動き始めたらページの縦スクロールを止め、チャートだけを動かす（斜めに動いて画面が揺れないように）
+function lockChartTouchAxis(canvas){
+  let sx = 0, sy = 0, axis = null;
+  canvas.addEventListener('touchstart', e => {
+    markChartBusy();
+    axis = e.touches.length > 1 ? 'pinch' : null;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+  }, {passive:true});
+  canvas.addEventListener('touchmove', e => {
+    markChartBusy();
+    if(e.touches.length > 1) axis = 'pinch';
+    if(axis === null){
+      const dx = Math.abs(e.touches[0].clientX - sx), dy = Math.abs(e.touches[0].clientY - sy);
+      if(dx < 5 && dy < 5) return;
+      axis = dx > dy ? 'x' : 'y';
+    }
+    if((axis === 'x' || axis === 'pinch') && e.cancelable) e.preventDefault();
+  }, {passive:false});
+  canvas.addEventListener('touchend', markChartBusy, {passive:true});
+}
+
 function resetPriceZoom(){
   if(!defaultChartXRange) return;
   syncXRange(defaultChartXRange.min, defaultChartXRange.max);
@@ -2398,7 +2432,7 @@ function applyQuote(){
   const priceEl = document.getElementById('rtPrice');
   if(priceEl && chgPct != null){
     const chgAbs = quote.change != null ? quote.change : (prev ? price - prev : 0);
-    const scrubbing = !!document.getElementById('heroScrub');
+    const scrubbing = document.getElementById('rtStatus')?.dataset.scrub === '1';
     heroBase = {price, chg:chgAbs, pct:chgPct};
     if(!scrubbing) setHeroPrice(price, chgAbs, chgPct, false);
     if(lastQuotePrice != null && price !== lastQuotePrice && !scrubbing){
@@ -2416,7 +2450,10 @@ function applyQuote(){
     const live = (quote.marketState === 'REGULAR' || meta.instrumentType === 'CRYPTOCURRENCY');
     const isCrypto = meta.instrumentType === 'CRYPTOCURRENCY';
     const delayNote = live ? `<span class="delay-note">${isCrypto ? '（数分遅延）' : '（約15〜20分遅延）'}</span>` : '';
-    statusEl.innerHTML = `${live ? '<span class="live-dot"></span>' : ''}${marketStateLabel(quote)}・更新 ${hh}:${mm}:${ss}${delayNote}`;
+    const statusHTML = `${live ? '<span class="live-dot"></span>' : ''}${marketStateLabel(quote)}・更新 ${hh}:${mm}:${ss}${delayNote}`;
+    // なぞっている間は表示を変えず、戻したときに出す文字だけ新しくする
+    if(statusEl.dataset.scrub === '1') statusEl.dataset.orig = statusHTML;
+    else statusEl.innerHTML = statusHTML;
   }
 
   // --- 現在の気配ボード（指値パネル） ---
@@ -2439,15 +2476,26 @@ function applyQuote(){
   lastQuotePrice = price;
 }
 
+// チャートを触っている間（と触り終えて少しの間）は、自動更新でチャートを作り直さない
+// （作り直すと指の下のチャートが差し替わり、カクっと動くため。次の自動更新でまとめて反映する）
+let chartBusyUntil = 0, _liveDeferred = false;
+function markChartBusy(){ chartBusyUntil = Date.now() + 4000; }
+const isChartBusy = () => Date.now() < chartBusyUntil;
+
 // ライブ価格を最終足の終値に反映して指標・判定・チャートを再計算
 function liveRefresh(){
   if(!quote || quote.price == null) return;
   const live = (quote.marketState === 'REGULAR' || meta.instrumentType === 'CRYPTOCURRENCY');
   const changed = quote.price !== lastQuotePrice;
-  if(live && changed && fullCloses.length){
+  if(live && (changed || _liveDeferred) && fullCloses.length){
     fullCloses[fullCloses.length-1] = quote.price;  // 最終足の終値を更新
     if(fullHighs.length) fullHighs[fullHighs.length-1] = Math.max(fullHighs[fullHighs.length-1] ?? quote.price, quote.price);
     if(fullLows.length) fullLows[fullLows.length-1] = Math.min(fullLows[fullLows.length-1] ?? quote.price, quote.price);
+  }
+  if(live && (changed || _liveDeferred) && fullCloses.length && isChartBusy()){
+    _liveDeferred = true;
+  } else if(live && (changed || _liveDeferred) && fullCloses.length){
+    _liveDeferred = false;
     // ユーザーがズーム/パンしていた表示範囲を再描画後も維持する
     const pc = Chart.getChart('priceChart');
     if(pc && pc.scales && pc.scales.x){
@@ -3874,19 +3922,22 @@ function setHeroPrice(price, chg, pct, scrub, label){
   cEl.textContent = (scrub ? '期間の始めから ' : '前日比 ') + `${sign}${fmtPrice(chg)}（${sign}${pct.toFixed(2)}%）`;
   const perf = document.getElementById('heroPerf');
   if(perf) perf.style.visibility = scrub ? 'hidden' : '';
-  let note = document.getElementById('heroScrub');
+  // 行を足したり消したりせず、更新時刻の行の文字だけ差し替える（高さを変えない）
   const st = document.getElementById('rtStatus');
-  if(scrub){
-    if(!note && st){ note = document.createElement('div'); note.id = 'heroScrub'; note.className = 'updated scrub-note'; st.before(note); }
-    if(note) note.textContent = label + ' の値';
-    if(st) st.style.display = 'none';
-  } else {
-    if(note) note.remove();
-    if(st) st.style.display = '';
+  if(st){
+    if(scrub){
+      if(st.dataset.scrub !== '1'){ st.dataset.orig = st.innerHTML; st.dataset.scrub = '1'; }
+      st.innerHTML = `<span class="scrub-note">${label} の値</span>`;
+    } else if(st.dataset.scrub === '1'){
+      st.innerHTML = st.dataset.orig || '';
+      st.dataset.scrub = '';
+    }
   }
 }
 // 価格チャートをなぞったとき：その時点の値と「表示期間の始めからの変化」を大きく出す
 function heroScrub(idx){
+  // タッチでは連動させない（文字が変わると上の欄の高さが揺れ、触っているチャートごと動くため。値はチャート上の帯に出る）
+  if(isTouchOnly) return;
   const pc = Chart.getChart('priceChart');
   if(idx == null || !pc){ if(heroBase) setHeroPrice(heroBase.price, heroBase.chg, heroBase.pct, false); return; }
   const data = pc.data.datasets[0].data;
@@ -3998,7 +4049,8 @@ function render(){
   const startPrice = fullCloses[Math.max(0, N - state.period)];
   const perfPct = startPrice ? (lastPrice / startPrice - 1) * 100 : null;
   const perfLabel = state.periodKey ? periodDef(state.periodKey).label : periodLabel(state.period);
-  const prevStatus = document.getElementById('rtStatus')?.innerHTML;
+  const _st = document.getElementById('rtStatus');
+  const prevStatus = _st ? (_st.dataset.scrub === '1' ? _st.dataset.orig : _st.innerHTML) : null;
   tickerBox.innerHTML = `
     <div class="name-row"><span class="nm">${state.symbolName}</span><span class="cd">${state.symbol}</span>
       <button class="watch-btn ${watched?'active':''}" onclick="toggleWatch()">${watched ? '★ ウォッチ中' : '☆ ウォッチ'}</button></div>
@@ -4642,8 +4694,8 @@ function render(){
               }
             }),
         zoom:{
-          pan:{ enabled:true, mode:'x', onPanComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
-          zoom:{ wheel:{enabled:true, speed:0.05, modifierKey:'ctrl'}, pinch:{enabled:true}, mode:'x', onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
+          pan:{ enabled:true, mode:'x', onPan:({chart})=>liveSync(chart), onPanComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
+          zoom:{ wheel:{enabled:true, speed:0.05, modifierKey:'ctrl'}, pinch:{enabled:true}, mode:'x', onZoom:({chart})=>liveSync(chart), onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
           limits:{ x:{ min:0, max: totalLen-1, minRange: Math.min(zoomMinRange, totalLen) } }
         }
       },
@@ -4691,8 +4743,8 @@ function render(){
 
   // 価格チャートと表示範囲を同期させるズーム/パン設定（予測区間を含まないチャート用）
   const subZoomPlugin = {
-    pan:{ enabled:true, mode:'x', onPanComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
-    zoom:{ wheel:{enabled:true, speed:0.05, modifierKey:'ctrl'}, pinch:{enabled:true}, mode:'x', onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
+    pan:{ enabled:true, mode:'x', onPan:({chart})=>liveSync(chart), onPanComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
+    zoom:{ wheel:{enabled:true, speed:0.05, modifierKey:'ctrl'}, pinch:{enabled:true}, mode:'x', onZoom:({chart})=>liveSync(chart), onZoomComplete:({chart})=>syncXRange(chart.scales.x.min, chart.scales.x.max) },
     limits:{ x:{ min:0, max: N-1+extraFuture, minRange: Math.min(zoomMinRange, N) } }
   };
 
@@ -4805,6 +4857,12 @@ function render(){
   }
 
   setupMaDragInputs();
+  // 触っている間の自動更新の保留と、スマホの縦スクロールの止め方を全チャートに付ける
+  mainCharts.forEach(c => {
+    lockChartTouchAxis(c.canvas);
+    c.canvas.addEventListener('pointerdown', markChartBusy);
+    c.canvas.addEventListener('wheel', e => { if(e.ctrlKey) markChartBusy(); }, {passive:true});
+  });
 }
 
 // ---------- URL params ----------
