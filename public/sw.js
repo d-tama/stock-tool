@@ -1,4 +1,4 @@
-const CACHE = 'mkt-v3';
+const CACHE = 'mkt-v23';
 const STATIC = [
   '/',
   '/index.html',
@@ -29,18 +29,13 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // HTML: stale-while-revalidate（即キャッシュ表示 + バックグラウンドで更新）
+  // HTML: network-first（常に最新を取得。オフライン時のみキャッシュにフォールバック）
   if(url.pathname === '/' || url.pathname.endsWith('.html')){
     e.respondWith(
-      caches.open(CACHE).then(cache =>
-        cache.match(e.request).then(cached => {
-          const fresh = fetch(e.request).then(res => {
-            if(res.ok) cache.put(e.request, res.clone());
-            return res;
-          });
-          return cached || fresh; // キャッシュがあれば即返す、なければネット待ち
-        })
-      )
+      fetch(e.request).then(res => {
+        if(res.ok){ const clone = res.clone(); caches.open(CACHE).then(c => c.put(e.request, clone)); }
+        return res;
+      }).catch(() => caches.match(e.request))
     );
     return;
   }

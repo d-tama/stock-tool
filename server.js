@@ -6,6 +6,27 @@ const PORT = process.env.PORT || 3300;
 
 const YF_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
 
+// ネットワークエラー・レート制限(429)・サーバーエラー(5xx)時に指数バックオフで再試行
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function fetchWithRetry(url, options = {}, retries = 2){
+  let lastErr;
+  for(let attempt = 0; attempt <= retries; attempt++){
+    try{
+      const r = await fetch(url, options);
+      if((r.status === 429 || r.status >= 500) && attempt < retries){
+        await sleep(400 * (attempt + 1));
+        continue;
+      }
+      return r;
+    }catch(e){
+      lastErr = e;
+      if(attempt < retries){ await sleep(400 * (attempt + 1)); continue; }
+      throw e;
+    }
+  }
+  throw lastErr;
+}
+
 // 価格・出来高チャートデータ
 app.get('/api/chart', async (req, res) => {
   const { symbol, range = '2y', interval = '1d' } = req.query;
@@ -13,7 +34,7 @@ app.get('/api/chart', async (req, res) => {
 
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}&events=div,splits`;
-    const r = await fetch(url, { headers: YF_HEADERS });
+    const r = await fetchWithRetry(url, { headers: YF_HEADERS });
     if (!r.ok) return res.status(r.status).json({ error: `Yahoo Finance HTTP ${r.status}` });
     const json = await r.json();
 
@@ -64,10 +85,54 @@ const NICKNAME_ALIASES = {
   'ナスダック':     { symbol: '^IXIC',   name: 'NASDAQ総合指数',                            type: '指数', exchange: '' },
   'ゴールド':       { symbol: 'GC=F',    name: 'ゴールド先物',                              type: '商品', exchange: 'COMEX' },
   '日経':           { symbol: '^N225',   name: '日経平均株価',                              type: '指数', exchange: '' },
+  'TOPIX':          { symbol: '1306.T',  name: 'TOPIX連動ETF（1306）',                       type: 'ETF',  exchange: '東証' },
   '原油':           { symbol: 'CL=F',    name: '原油先物(WTI)',                             type: '商品', exchange: 'NYMEX' },
   'ドル円':         { symbol: 'JPY=X',   name: 'ドル/円',                                  type: '為替', exchange: '' },
   'ビットコイン':   { symbol: 'BTC-JPY', name: 'ビットコイン / BTC/JPY',                   type: '暗号資産', exchange: '' },
   'キオクシア':     { symbol: '285A.T',  name: 'キオクシアホールディングス',               type: '資本',     exchange: '東京証券取引所' },
+};
+
+// カタカナをひらがなに正規化（読み検索用）
+function toHiragana(str){
+  return (str || '').replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+}
+
+// ひらがな読み → 銘柄（Yahoo検索が日本語の読みに非対応のため、主要銘柄を補完）
+const READING_ALIASES = {
+  'にんてんどう':           { symbol:'7974.T', name:'任天堂',               type:'株式', exchange:'東証' },
+  'えにーからー':           { symbol:'5032.T', name:'ANYCOLOR',            type:'株式', exchange:'東証' },
+  'かばー':                 { symbol:'5253.T', name:'カバー',               type:'株式', exchange:'東証' },
+  'そにー':                 { symbol:'6758.T', name:'ソニーグループ',       type:'株式', exchange:'東証' },
+  'とよた':                 { symbol:'7203.T', name:'トヨタ自動車',         type:'株式', exchange:'東証' },
+  'ほんだ':                 { symbol:'7267.T', name:'ホンダ',               type:'株式', exchange:'東証' },
+  'にっさん':               { symbol:'7201.T', name:'日産自動車',           type:'株式', exchange:'東証' },
+  'すずき':                 { symbol:'7269.T', name:'スズキ',               type:'株式', exchange:'東証' },
+  'すばる':                 { symbol:'7270.T', name:'SUBARU',              type:'株式', exchange:'東証' },
+  'そふとばんく':           { symbol:'9984.T', name:'ソフトバンクグループ', type:'株式', exchange:'東証' },
+  'ふぁーすとりていりんぐ': { symbol:'9983.T', name:'ファーストリテイリング', type:'株式', exchange:'東証' },
+  'きーえんす':             { symbol:'6861.T', name:'キーエンス',           type:'株式', exchange:'東証' },
+  'むらたせいさくしょ':     { symbol:'6981.T', name:'村田製作所',           type:'株式', exchange:'東証' },
+  'しんえつかがく':         { symbol:'4063.T', name:'信越化学工業',         type:'株式', exchange:'東証' },
+  'えぬてぃーてぃー':       { symbol:'9432.T', name:'日本電信電話(NTT)',    type:'株式', exchange:'東証' },
+  'かどかわ':               { symbol:'9468.T', name:'KADOKAWA',            type:'株式', exchange:'東証' },
+  'みつびししょうじ':       { symbol:'8058.T', name:'三菱商事',             type:'株式', exchange:'東証' },
+  'みついぶっさん':         { symbol:'8031.T', name:'三井物産',             type:'株式', exchange:'東証' },
+  'いとうちゅうしょうじ':   { symbol:'8001.T', name:'伊藤忠商事',           type:'株式', exchange:'東証' },
+  'ふじふいるむ':           { symbol:'4901.T', name:'富士フイルムホールディングス', type:'株式', exchange:'東証' },
+  'だいきん':               { symbol:'6367.T', name:'ダイキン工業',         type:'株式', exchange:'東証' },
+  'ばんだいなむこ':         { symbol:'7832.T', name:'バンダイナムコホールディングス', type:'株式', exchange:'東証' },
+  'すくうぇあえにっくす':   { symbol:'9684.T', name:'スクウェア・エニックス・ホールディングス', type:'株式', exchange:'東証' },
+  'こなみ':                 { symbol:'9766.T', name:'コナミグループ',       type:'株式', exchange:'東証' },
+  'にっぽんせいてつ':       { symbol:'5401.T', name:'日本製鉄',             type:'株式', exchange:'東証' },
+  'みつびしじゅうこう':     { symbol:'7011.T', name:'三菱重工業',           type:'株式', exchange:'東証' },
+  'りくるーと':             { symbol:'6098.T', name:'リクルートホールディングス', type:'株式', exchange:'東証' },
+  'でんそー':               { symbol:'6902.T', name:'デンソー',             type:'株式', exchange:'東証' },
+  'ぱなそにっく':           { symbol:'6752.T', name:'パナソニック ホールディングス', type:'株式', exchange:'東証' },
+  'ひたち':                 { symbol:'6501.T', name:'日立製作所',           type:'株式', exchange:'東証' },
+  'ふじつう':               { symbol:'6702.T', name:'富士通',               type:'株式', exchange:'東証' },
+  'とうきょうえれくとろん': { symbol:'8035.T', name:'東京エレクトロン',     type:'株式', exchange:'東証' },
+  'あどばんてすと':         { symbol:'6857.T', name:'アドバンテスト',       type:'株式', exchange:'東証' },
+  'みつびしゆーえふじぇい': { symbol:'8306.T', name:'三菱UFJフィナンシャル・グループ', type:'株式', exchange:'東証' },
 };
 
 // 銘柄検索
@@ -81,9 +146,15 @@ app.get('/api/search', async (req, res) => {
       .filter(([key]) => q.includes(key) || key.includes(q))
       .map(([, v]) => v);
 
+    // ひらがな/カタカナの読みで主要銘柄を補完（2文字以上の前方一致）
+    const qHira = toHiragana(q);
+    const readingHits = qHira.length >= 2
+      ? Object.entries(READING_ALIASES).filter(([r]) => r.startsWith(qHira)).map(([, v]) => v)
+      : [];
+
     const yfSearch = async (query) => {
       const url = `https://query1.finance.yahoo.com/v6/finance/autocomplete?region=JP&lang=ja-JP&query=${encodeURIComponent(query)}`;
-      const r = await fetch(url, { headers: YF_HEADERS });
+      const r = await fetchWithRetry(url, { headers: YF_HEADERS });
       if (!r.ok) return [];
       const json = await r.json();
       return (json.ResultSet?.Result || [])
@@ -106,9 +177,10 @@ app.get('/api/search', async (req, res) => {
     }
 
     // ニックネーム結果を先頭に、重複シンボルを除外してマージ
-    const seen = new Set(aliasHits.map(r => r.symbol));
+    const combined = [...aliasHits, ...readingHits];
+    const seen = new Set(combined.map(r => r.symbol));
     const quotes = [
-      ...aliasHits,
+      ...combined,
       ...apiQuotes.filter(r => !seen.has(r.symbol)),
     ].slice(0, 10);
 
@@ -147,13 +219,13 @@ app.get('/api/fundamentals', async (req, res) => {
   try {
     let { cookie, crumb } = await getCrumb();
     let url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}&crumb=${encodeURIComponent(crumb)}`;
-    let r = await fetch(url, { headers: { ...YF_HEADERS, Cookie: cookie } });
+    let r = await fetchWithRetry(url, { headers: { ...YF_HEADERS, Cookie: cookie } });
 
     if (r.status === 401) {
       crumbCache = null;
       ({ cookie, crumb } = await getCrumb());
       url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}&crumb=${encodeURIComponent(crumb)}`;
-      r = await fetch(url, { headers: { ...YF_HEADERS, Cookie: cookie } });
+      r = await fetchWithRetry(url, { headers: { ...YF_HEADERS, Cookie: cookie } });
     }
 
     const json = await r.json();
@@ -200,11 +272,11 @@ app.get('/api/quote', async (req, res) => {
 
   try {
     let { cookie, crumb } = await getCrumb();
-    let r = await fetch(buildUrl(crumb), { headers: { ...YF_HEADERS, Cookie: cookie } });
+    let r = await fetchWithRetry(buildUrl(crumb), { headers: { ...YF_HEADERS, Cookie: cookie } });
     if (r.status === 401) {
       crumbCache = null;
       ({ cookie, crumb } = await getCrumb());
-      r = await fetch(buildUrl(crumb), { headers: { ...YF_HEADERS, Cookie: cookie } });
+      r = await fetchWithRetry(buildUrl(crumb), { headers: { ...YF_HEADERS, Cookie: cookie } });
     }
 
     let q = null;
@@ -215,7 +287,7 @@ app.get('/api/quote', async (req, res) => {
 
     // v7 quote が使えない場合は chart メタから価格だけ取得（板情報なし）
     if (!q) {
-      const cr = await fetch(
+      const cr = await fetchWithRetry(
         `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1m`,
         { headers: YF_HEADERS }
       );
