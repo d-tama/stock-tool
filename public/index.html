@@ -964,7 +964,10 @@
   @media(max-width:640px){ .brand, .kbd{display:none;} .sym-btn{margin-left:0;} }
 
   /* ヒーロー（銘柄・価格） */
-  .hero{display:grid; grid-template-columns:auto minmax(0,1fr); gap:28px; align-items:center; padding:18px 22px; margin-bottom:14px;}
+  /* 価格欄は幅を固定（価格・前日比の文字数で右のウォッチリストが動かないように） */
+  .hero{display:grid; grid-template-columns:380px minmax(0,1fr); gap:28px; align-items:center; padding:18px 22px; margin-bottom:14px;}
+  .hero .ticker > *{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .hero .price{max-width:100%;}
   .hero .ticker{text-align:left; font-family:'Zen Kaku Gothic New', sans-serif; min-width:0;}
   .hero .name-row{display:flex; align-items:center; gap:8px; min-width:0; font-size:13px; color:var(--ink-soft);}
   .hero .name-row .nm{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -1284,7 +1287,6 @@
     <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
   </button>
   <div class="top-actions">
-    <span class="kbd" title="/ キーで銘柄を切り替え">/</span>
     <button id="themeToggle" class="theme-toggle" onclick="toggleThemeAnimated(event)" aria-label="ダーク/ライト切替"></button>
   </div>
 </header>
