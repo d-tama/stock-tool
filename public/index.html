@@ -24,6 +24,7 @@
   var ov = localStorage.getItem('themeOverride');
   var sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   document.documentElement.dataset.theme = ov || sys;
+  document.documentElement.dataset.updown = localStorage.getItem('upDownColor') || 'jp';
 })();
 </script>
 <style>
@@ -104,55 +105,15 @@
     linear-gradient(to right, rgba(0,0,0,.07) 0%, transparent 100%) left  / 20px 100% scroll no-repeat,
     linear-gradient(to left,  rgba(0,0,0,.07) 0%, transparent 100%) right / 20px 100% scroll no-repeat;
   }
-  .masthead{
-    border-bottom:3px double var(--ink);
-    padding-bottom:16px;
-    margin-bottom:22px;
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-end;
-    flex-wrap:wrap;
-    gap:10px;
-  }
-  .masthead h1{
-    font-family:'Shippori Mincho', serif;
-    font-weight:800;
-    font-size:clamp(28px, 5vw, 42px);
-    letter-spacing:.06em;
-    margin:0;
-    line-height:1.2;
-  }
-  .masthead .sub{
-    font-size:12px;
-    color:var(--ink-soft);
-    letter-spacing:.15em;
-    margin-top:4px;
-  }
-  .ticker{
-    font-family:'JetBrains Mono', monospace;
-    text-align:right;
-  }
-  .ticker .name{
-    font-size:13px;
-    color:var(--ink-soft);
-    font-family:'Zen Kaku Gothic New', sans-serif;
-    letter-spacing:.05em;
-  }
-  .ticker .price{
-    font-size:clamp(22px,4vw,30px);
-    font-weight:700;
-  }
-  .ticker .updated{
-    font-size:11px;
-    color:var(--ink-soft);
-    letter-spacing:.05em;
-  }
-  .ticker .chg{font-size:13px; font-weight:500;}
-  .up{color:var(--indigo);}
-  .down{color:var(--vermillion);}
+  /* 値動きの色：日本式（上昇=赤・下落=青）／米国式（上昇=青緑・下落=赤） */
+  :root[data-updown="jp"]{ --up:var(--vermillion); --down:#2F6FA8; }
+  :root[data-theme="dark"][data-updown="jp"]{ --down:#5AA2E0; }
+  :root[data-updown="us"]{ --up:var(--indigo); --down:var(--vermillion); }
+  .up{color:var(--up);}
+  .down{color:var(--down);}
   .ticker .price{border-radius:4px; transition:none;}
-  @keyframes flashUp{0%{background:rgba(53,92,91,0.28);}100%{background:transparent;}}
-  @keyframes flashDown{0%{background:rgba(191,75,51,0.28);}100%{background:transparent;}}
+  @keyframes flashUp{0%{background:color-mix(in srgb, var(--up) 28%, transparent);}100%{background:transparent;}}
+  @keyframes flashDown{0%{background:color-mix(in srgb, var(--down) 28%, transparent);}100%{background:transparent;}}
   .flash-up{animation:flashUp .7s ease-out;}
   .flash-down{animation:flashDown .7s ease-out;}
   .live-dot{
@@ -162,108 +123,6 @@
   }
   @keyframes livePulse{0%,100%{opacity:1;}50%{opacity:.25;}}
   .delay-note{ font-size:10px; opacity:0.6; margin-left:4px; }
-
-  /* Quick navigation */
-  .quicknav{
-    position:sticky;
-    top:0;
-    z-index:20;
-    display:flex;
-    gap:5px;
-    flex-wrap:wrap;
-    align-items:center;
-    background:color-mix(in srgb, var(--paper) 94%, transparent);
-    backdrop-filter:blur(6px);
-    -webkit-backdrop-filter:blur(6px);
-    border-bottom:1px solid var(--line);
-    padding:9px 0;
-    margin-bottom:18px;
-  }
-  .quicknav a{
-    font-size:12px;
-    color:var(--ink-soft);
-    text-decoration:none;
-    padding:4px 11px;
-    border:1px solid var(--line);
-    border-radius:13px;
-    letter-spacing:.06em;
-    white-space:nowrap;
-    background:var(--surface-btn);
-    transition:background .12s, color .12s, border-color .12s;
-  }
-  .quicknav a:hover{border-color:var(--ink-soft); color:var(--ink);}
-  .quicknav a.current{
-    background:var(--ink);
-    color:var(--paper);
-    border-color:var(--ink);
-  }
-  .quicknav a.top-link{
-    border-style:dashed;
-    background:transparent;
-  }
-  .panel, .section-title{scroll-margin-top:62px;}
-
-  /* Search */
-  .search-box{
-    display:flex;
-    gap:8px;
-    margin-bottom:14px;
-    flex-wrap:wrap;
-  }
-  .search-box input{
-    flex:1;
-    min-width:160px;
-    border:1px solid var(--line);
-    background:var(--surface-btn);
-    padding:8px 12px;
-    font-size:13px;
-    font-family:'Zen Kaku Gothic New', sans-serif;
-    color:var(--ink);
-    border-radius:2px;
-  }
-  .search-box input:focus{outline:2px solid var(--indigo); outline-offset:1px;}
-  .search-box button{
-    border:1px solid var(--ink);
-    background:var(--ink);
-    color:var(--paper);
-    padding:8px 18px;
-    font-size:13px;
-    font-family:'Zen Kaku Gothic New', sans-serif;
-    cursor:pointer;
-    border-radius:2px;
-    letter-spacing:.1em;
-  }
-  .search-box button:hover{background:var(--indigo);}
-  .search-results{
-    margin-bottom:14px;
-    border:1px solid var(--line);
-    background:var(--surface-btn);
-    display:none;
-  }
-  .search-results.show{display:block;}
-  .search-results .item{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    padding:8px 12px;
-    border-bottom:1px solid var(--line);
-    cursor:pointer;
-    font-size:13px;
-  }
-  .search-results .item:last-child{border-bottom:none;}
-  .search-results .item:hover{background:rgba(0,0,0,0.04);}
-  .search-results .item .nm{flex:1;}
-  .search-results .item .sym{
-    font-family:'JetBrains Mono', monospace;
-    color:var(--ink-soft);
-    font-size:12px;
-    white-space:nowrap;
-  }
-  .search-empty{
-    padding:8px 12px;
-    font-size:12px;
-    color:var(--ink-soft);
-  }
 
   /* Controls */
   .controls{
@@ -1037,65 +896,12 @@
   .reload-btn:hover{background:var(--indigo);}
   .reload-btn:focus-visible, button:focus-visible{outline:2px solid var(--indigo); outline-offset:2px;}
 
-  /* ===== レスポンシブ・ダッシュボードレイアウト ===== */
-  /* 主要パネル（判定・個別指標・価格チャート等）は全幅で縦に積み、
-     市場心理・出来高・指値は info-band 内で2:1の2列に。 */
-  @media (min-width:1024px){
-    #content{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      grid-auto-flow:row dense;
-      gap:26px;
-      align-items:start;
-    }
-    #content > .panel{
-      margin-bottom:0;
-      display:flex;
-      flex-direction:column;
-    }
-    #content > #sec-verdict,
-    #content > #sec-indicators,
-    #content > #sec-chart,
-    #content > #sec-fundamentals,
-    #content > #sec-tech,
-    #content > .info-band{grid-column:1 / -1;}
-    #sec-chart .chart-box{height:400px;}
-    #content .chart-box.small{height:200px;}
-    #comparePanel{margin-top:26px;}
-  }
-
-  /* 市場心理・出来高・指値の目安：左列(心理/出来高 縦積み) ＋ 右列(指値) */
-  .info-band{display:flex; flex-direction:column; gap:26px;}
-  @media (max-width:1023px){ .info-band{margin-bottom:26px;} }
-  .info-band .panel{margin-bottom:0;}
-  .info-col-left{display:flex; flex-direction:column; gap:26px; min-width:0;}
-  @media (min-width:760px){
-    .info-band{flex-direction:row; align-items:stretch;}
-    /* 左列(心理+出来高)=2 : 右列(指値)=1 */
-    .info-col-left{flex:2 1 0;}
-    /* 出来高パネルを下端まで伸ばし、右列(指値の目安)と下端を揃える */
-    .info-col-left > .panel:last-child{flex:1 1 auto; display:flex; flex-direction:column;}
-    .info-col-left > .panel:last-child .chart-box{flex:1 1 auto; min-height:120px;}
-    .info-band > #sec-limit{
-      flex:1 1 0;
-      min-width:0;
-      display:flex;
-      flex-direction:column;
-    }
-    .info-band > #sec-limit .scenario-note{margin-top:auto;}
-  }
-
   @media (max-width:600px){
     .stamp{width:104px; height:104px; font-size:18px;}
     .gauge-svg{width:170px;}
-    .chart-box{height:240px;}
+    .chart-box{height:300px;}
     .chart-box.small{height:160px;}
     .panel{padding:16px;}
-    .quicknav{gap:4px; padding:7px 0;}
-    .quicknav a{padding:3px 9px; font-size:11px;}
-    /* スマホでは銘柄情報（ティッカー）を右端に寄せる */
-    .ticker{width:100%; text-align:right;}
-    .ticker .watch-btn{margin-left:auto;}
     /* 市場心理：ゲージを上、説明文を下に積んで見切れを防ぐ */
     .gauge-row{flex-direction:column; align-items:flex-start; gap:12px;}
     .gauge-info{min-width:0; width:100%;}
@@ -1125,6 +931,209 @@
   }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
   .ticker .freshness{ font-size:11px; color:var(--ink-soft); opacity:.8; margin-top:1px; }
+
+  /* ===================== 新レイアウト（2026-10 作り直し） ===================== */
+  .wrap{max-width:1320px; padding:18px clamp(14px, 2vw, 28px) 48px;}
+  @media(max-width:1023px){ .wrap{padding:14px 12px calc(96px + env(safe-area-inset-bottom));} }
+  .panel, .skel-panel{border-radius:14px; border-color:color-mix(in srgb, var(--line) 70%, transparent); padding:20px; margin-bottom:0;}
+  .panel{box-shadow:0 1px 2px rgba(42,36,32,.04), 0 6px 20px rgba(42,36,32,.04); scroll-margin-top:72px;}
+  @media(max-width:1023px){ .panel{padding:16px 14px;} }
+  .section-title{letter-spacing:.14em; color:var(--ink); font-weight:700; border-bottom:none; padding-bottom:0; margin-bottom:14px;}
+
+  /* 上部バー */
+  .topbar{
+    position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:10px;
+    padding:10px clamp(14px, 2vw, 28px);
+    background:color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  }
+  .brand{font-family:'Shippori Mincho', serif; font-weight:800; font-size:17px; letter-spacing:.08em; white-space:nowrap; color:inherit; text-decoration:none;}
+  .sym-btn{
+    display:flex; align-items:center; gap:8px; min-width:0; margin-left:6px;
+    padding:7px 12px 7px 14px; border-radius:999px; border:1px solid var(--line); background:var(--panel-bg);
+    font-family:'Zen Kaku Gothic New', sans-serif; font-size:14px; color:var(--ink);
+  }
+  .sym-btn:hover{border-color:var(--ink-soft);}
+  .sym-btn .nm{font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .sym-btn .cd{font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--ink-soft); white-space:nowrap;}
+  .sym-btn svg{flex-shrink:0; opacity:.6;}
+  .top-actions{margin-left:auto; display:flex; align-items:center; gap:8px;}
+  .kbd{font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--ink-soft); border:1px solid var(--line); border-radius:5px; padding:1px 6px;}
+  .topbar .theme-toggle{width:34px; height:34px; margin-left:0;}
+  @media(max-width:640px){ .brand, .kbd{display:none;} .sym-btn{margin-left:0;} }
+
+  /* ヒーロー（銘柄・価格） */
+  .hero{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:center; padding:20px 24px; margin-bottom:18px;}
+  .hero .ticker{text-align:left; font-family:'Zen Kaku Gothic New', sans-serif; min-width:0;}
+  .hero .name-row{display:flex; align-items:center; gap:8px; min-width:0; font-size:13px; color:var(--ink-soft);}
+  .hero .name-row .nm{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .hero .name-row .cd{font-family:'JetBrains Mono', monospace; font-size:11.5px; white-space:nowrap;}
+  .hero .watch-btn{margin-top:0; white-space:nowrap; flex-shrink:0;}
+  .hero .price{font-family:'JetBrains Mono', monospace; font-variant-numeric:tabular-nums; font-size:clamp(34px, 6.5vw, 52px); font-weight:700; line-height:1.08; letter-spacing:-.01em; margin:4px 0 6px; display:inline-block; padding:0 4px; margin-left:-4px;}
+  .hero .price small{font-size:.4em; font-weight:500; color:var(--ink-soft); margin-left:6px; letter-spacing:0;}
+  .hero .chg-row{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px;}
+  .hero .chg{font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:700;}
+  .hero .period-perf{font-family:'JetBrains Mono', monospace; font-size:12px; padding:2px 9px; border-radius:999px; background:color-mix(in srgb, var(--ink) 6%, transparent);}
+  .hero .updated, .hero .freshness{font-size:11.5px; color:var(--ink-soft); margin-top:6px; letter-spacing:.02em;}
+  .hero .freshness{margin-top:0;}
+  .hero .scrub-note{color:var(--gold); font-weight:700;}
+  .mini-verdict{display:flex; flex-direction:column; align-items:center; gap:8px; text-decoration:none; color:inherit; padding-right:6px;}
+  .mini-verdict .lbl{font-size:11px; color:var(--ink-soft); letter-spacing:.12em;}
+  .stamp.sm{width:92px; height:92px; font-size:18px; border-width:4px;}
+  .stamp.sm::after{inset:6px;}
+  @media(max-width:640px){
+    .hero{padding:16px; gap:10px;}
+    .stamp.sm{width:74px; height:74px; font-size:15px;}
+  }
+
+  /* 2列レイアウト（PC）／1列で並べ替え（スマホ・タブレット） */
+  #content{display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:18px; align-items:start;}
+  #content > .loading, #content > .error, #content > .skel-panel, #content > div[style]{grid-column:1 / -1;}
+  .col{display:flex; flex-direction:column; gap:18px; min-width:0;}
+  #comparePanel{margin-top:18px;}
+  #comparePanel:empty{display:none;}
+  @media(max-width:1023px){
+    #content{grid-template-columns:minmax(0,1fr); gap:14px;}
+    .col{display:contents;}
+    #sec-chart{order:1;} #sec-verdict{order:2;} #sec-indicators{order:3;} #sec-limit{order:4;}
+    #sec-sentiment{order:5;} #sec-tech{order:6;} #sec-volume{order:7;} #sec-fundamentals{order:8;} #sec-watch{order:9;}
+    #comparePanel{margin-top:14px;}
+  }
+  #sec-chart .chart-box{height:clamp(300px, 46vh, 460px);}
+  @media(max-width:640px){
+    #sec-chart .chart-box{height:clamp(240px, 38vh, 380px);}
+    #sec-chart .legend-row{flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; gap:4px 10px; padding-bottom:2px;
+      background:var(--scroll-shadow);}
+    #sec-chart .legend-row::-webkit-scrollbar{display:none;}
+    #sec-chart .legend-row > *{flex-shrink:0;}
+  }
+  @media(hover:none){ .legend-hint{display:none;} }
+  .col-side .gauge-svg{width:170px;}
+  .col-side .gauge-info{min-width:150px;}
+  .col-side .watch-grid{grid-template-columns:repeat(2, minmax(0,1fr));}
+
+  /* チャートのツールバー：期間（つまみがスライド）＋表示メニュー */
+  .chart-toolbar{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  #sec-chart .chart-box{transition:opacity 200ms var(--ease-std);}
+  #sec-chart.is-loading .chart-box{opacity:.35;}
+  .seg{position:relative; display:flex; gap:2px; padding:3px; border-radius:999px; background:color-mix(in srgb, var(--ink) 6%, transparent);
+    overflow-x:auto; scrollbar-width:none; flex:1 1 auto; min-width:0;}
+  .seg::-webkit-scrollbar{display:none;}
+  .seg button{position:relative; z-index:1; border:none; background:none; padding:6px 12px; border-radius:999px; cursor:pointer;
+    font-family:'Zen Kaku Gothic New', sans-serif; font-size:12.5px; color:var(--ink-soft); white-space:nowrap; flex:1 0 auto;
+    transition:color 180ms var(--ease-std);}
+  .seg button:hover{color:var(--ink);}
+  .seg button.on{color:var(--paper); font-weight:700;}
+  .seg .thumb{position:absolute; z-index:0; top:3px; bottom:3px; left:0; width:0; border-radius:999px; background:var(--ink);
+    transition:transform 300ms var(--ease-move), width 300ms var(--ease-move);}
+  .seg .thumb.none{opacity:0;}
+  .view-wrap{position:relative; flex-shrink:0;}
+  .view-btn{display:flex; align-items:center; gap:6px; border:1px solid var(--line); background:transparent; color:var(--ink);
+    border-radius:999px; padding:6px 13px; font-size:12.5px; cursor:pointer; font-family:'Zen Kaku Gothic New', sans-serif;}
+  .view-btn:hover{border-color:var(--ink-soft);}
+  .popover{position:absolute; right:0; top:calc(100% + 8px); z-index:45; width:290px; max-height:min(70vh, 560px); overflow-y:auto;
+    background:var(--panel-bg); border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.18);
+    padding:6px; transform-origin:top right; opacity:0; visibility:hidden; transform:scale(.96) translateY(-4px);
+    transition:opacity 120ms var(--ease-in), transform 120ms var(--ease-in), visibility 0s linear 120ms;}
+  .popover.open{opacity:1; visibility:visible; transform:none;
+    transition:opacity 180ms var(--ease-out), transform 220ms var(--ease-out), visibility 0s;}
+  .opt{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 10px; border-radius:8px; font-size:13px;}
+  .opt.col-opt{flex-direction:column; align-items:stretch; gap:7px;}
+  .opt .hint{display:block; font-size:11px; color:var(--ink-soft);}
+  .opt.disabled{opacity:.45;}
+  .opt-sep{height:1px; background:var(--line); opacity:.6; margin:4px 6px;}
+  .chips{display:flex; flex-wrap:wrap; gap:5px;}
+  .chips .pill{padding:4px 10px; font-size:11.5px;}
+  .toggle{position:relative; width:38px; height:22px; flex-shrink:0; border-radius:999px; border:none; padding:0; cursor:pointer;
+    background:color-mix(in srgb, var(--ink) 20%, transparent); transition:background-color 180ms var(--ease-std);}
+  .toggle::after{content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff;
+    box-shadow:0 1px 2px rgba(0,0,0,.3); transition:transform 260ms var(--ease-pop);}
+  .toggle[aria-checked="true"]{background:var(--indigo);}
+  .toggle[aria-checked="true"]::after{transform:translateX(16px);}
+  .toggle:disabled{cursor:default;}
+  @media(max-width:640px){
+    .seg button{padding:6px 2px; font-size:11.5px;}
+    .view-btn{width:34px; height:34px; padding:0; justify-content:center; font-size:0; gap:0;}
+  }
+
+  /* 総合判定カード */
+  .verdict-main{display:flex; gap:18px; align-items:center;}
+  .verdict-main .stamp{width:112px; height:112px; font-size:21px;}
+  .verdict-main .verdict{font-family:'Shippori Mincho', serif; font-weight:700; font-size:17px; margin:0 0 6px; line-height:1.5;
+    color:var(--stamp-color, var(--ink)); word-break:auto-phrase;}
+  .verdict-main p{margin:0; font-size:12.5px; color:var(--ink-soft); line-height:1.75;}
+  .counts{display:flex; gap:8px; margin-top:12px;}
+  .counts span{flex:1; text-align:center; font-size:11.5px; color:var(--ink-soft); padding:6px 4px; border-radius:8px; background:color-mix(in srgb, var(--ink) 5%, transparent);}
+  .counts b{display:block; font-family:'JetBrains Mono', monospace; font-size:16px; color:var(--ink);}
+  .basis-note{font-size:11px; color:var(--ink-soft); margin-top:10px;}
+
+  /* 判定の根拠（行をタップすると説明が開く） */
+  .sig{border-top:1px solid color-mix(in srgb, var(--line) 70%, transparent);}
+  .sig:first-of-type{border-top:none;}
+  .sig summary{list-style:none; display:grid; grid-template-columns:minmax(0,1fr) auto auto 14px; gap:12px; align-items:center; padding:11px 2px; cursor:pointer;}
+  .sig summary::-webkit-details-marker{display:none;}
+  .sig .nm{font-size:13.5px;}
+  .sig .val{font-family:'JetBrains Mono', monospace; font-weight:700; font-size:15px; text-align:right; font-variant-numeric:tabular-nums;}
+  .sig .tag{margin-top:0; white-space:nowrap;}
+  .sig .chev{opacity:.5; transition:transform 260ms var(--ease-move);}
+  .sig[open] .chev{transform:rotate(180deg);}
+  .sig .body{font-size:12.5px; color:var(--ink-soft); line-height:1.8; padding:0 2px 12px;}
+  .sig .body p{margin:0 0 4px;}
+  .sig .body .sub{font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--ink);}
+
+  /* たためる注記 */
+  details.fold{margin-top:10px; font-size:12px; color:var(--ink-soft);}
+  details.fold > summary{cursor:pointer; list-style:none; display:inline-flex; gap:4px; align-items:center;}
+  details.fold > summary::-webkit-details-marker{display:none;}
+  details.fold > summary::before{content:'＋'; font-size:11px;}
+  details.fold[open] > summary::before{content:'－';}
+  details.fold > div{line-height:1.8; margin-top:6px;}
+  .disclaimer{border-top:none; margin-top:22px; padding-top:0;}
+
+  /* スマホの下部タブバー */
+  .tabbar{display:none; position:fixed; left:0; right:0; bottom:0; z-index:50;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+    background:color-mix(in srgb, var(--panel-bg) 92%, transparent);
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border-top:1px solid color-mix(in srgb, var(--line) 60%, transparent);}
+  @media(max-width:1023px){ .tabbar{display:grid; grid-template-columns:repeat(4, 1fr);} }
+  .tabbar button{border:none; background:none; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer;
+    font-family:'Zen Kaku Gothic New', sans-serif; font-size:10.5px; color:var(--ink-soft); padding:6px 0; border-radius:10px;
+    transition:color 180ms var(--ease-std), transform 300ms var(--ease-pop);}
+  .tabbar button:active{transform:scale(.92); transition-duration:100ms;}
+  .tabbar button.on{color:var(--ink); font-weight:700;}
+  .tabbar svg{width:22px; height:22px;}
+  @media(max-width:1023px){ .toast{bottom:calc(84px + env(safe-area-inset-bottom));} }
+
+  /* 銘柄の切り替え（PC=中央のパレット／スマホ=下からのシート） */
+  .scrim{position:fixed; inset:0; z-index:70; background:rgba(0,0,0,.42); opacity:0; visibility:hidden;
+    transition:opacity 200ms var(--ease-in), visibility 0s linear 200ms;}
+  .scrim.open{opacity:1; visibility:visible; transition:opacity 300ms var(--ease-out), visibility 0s;}
+  .picker{position:fixed; z-index:71; left:50%; top:12vh; width:min(580px, calc(100vw - 32px)); max-height:72vh;
+    display:flex; flex-direction:column; background:var(--panel-bg); border:1px solid var(--line); border-radius:16px;
+    box-shadow:0 24px 60px rgba(0,0,0,.3); opacity:0; visibility:hidden; transform:translateX(-50%) translateY(16px) scale(.96);
+    transition:opacity 200ms var(--ease-in), transform 220ms var(--ease-in), visibility 0s linear 220ms;}
+  .picker.open{opacity:1; visibility:visible; transform:translateX(-50%);
+    transition:opacity 220ms var(--ease-out), transform 420ms var(--ease-sheet), visibility 0s;}
+  @media(max-width:640px){
+    .picker{left:0; right:0; top:auto; bottom:0; width:auto; max-height:86vh; border-radius:18px 18px 0 0;
+      padding-bottom:env(safe-area-inset-bottom); transform:translateY(100%); opacity:1;}
+    .picker.open{transform:none;}
+  }
+  .picker .grab{width:36px; height:4px; border-radius:2px; background:var(--line); margin:8px auto 0; display:none;}
+  @media(max-width:640px){ .picker .grab{display:block;} }
+  .picker .search{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line);}
+  .picker input{flex:1; min-width:0; border:none; outline:none; background:transparent; font-family:inherit; font-size:16px; color:var(--ink);}
+  .picker .list{overflow-y:auto; padding:6px 8px 12px; overscroll-behavior:contain;}
+  .picker .grp{font-size:11px; letter-spacing:.12em; color:var(--ink-soft); padding:12px 10px 4px;}
+  .picker .row{display:flex; align-items:center; gap:10px; width:100%; text-align:left; border:none; background:none; cursor:pointer;
+    padding:10px; border-radius:10px; font-family:inherit; font-size:14px; color:var(--ink); transition:background-color 120ms var(--ease-std);}
+  .picker .row:hover, .picker .row.kb{background:color-mix(in srgb, var(--ink) 7%, transparent);}
+  .picker .row .n{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .picker .row .s{font-family:'JetBrains Mono', monospace; font-size:11.5px; color:var(--ink-soft); white-space:nowrap;}
+  .picker .row .cur{font-size:10px; color:var(--gold); font-weight:700;}
+  .picker .empty{padding:14px 10px; font-size:12.5px; color:var(--ink-soft);}
 
   /* ===== モーション（Obsidian Knowledge/motion-design-cheatsheet.md の基準値に合わせる） ===== */
   :root{
@@ -1173,7 +1182,7 @@
     45% { opacity:1; transform:rotate(-4deg) scale(.95); animation-timing-function:var(--ease-out); }
     100%{ transform:rotate(-4deg) scale(1); }
   }
-  .intro-rise .stamp, .verdict-replay .stamp{
+  .intro-rise .stamp, .verdict-replay .stamp, .stamp.replay{
     animation:stampPress 460ms backwards;
     animation-delay:calc(var(--i,0) * 50ms + 220ms);
   }
@@ -1244,29 +1253,26 @@
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{});});}</script>
 </head>
 <body>
+<header class="topbar" id="top-anchor">
+  <a class="brand" href="/">マーケット観測所</a>
+  <button class="sym-btn" id="symBtn" onclick="openPicker()" aria-haspopup="dialog" title="銘柄を切り替え（/ キー）">
+    <span class="nm" id="symBtnName">…</span><span class="cd" id="symBtnCode"></span>
+    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+  </button>
+  <div class="top-actions">
+    <span class="kbd" title="/ キーで銘柄を切り替え">/</span>
+    <button id="themeToggle" class="theme-toggle" onclick="toggleThemeAnimated(event)" aria-label="ダーク/ライト切替"></button>
+  </div>
+</header>
+
 <div class="wrap">
-
-  <div class="masthead" id="top-anchor">
-    <div>
-      <h1>マーケット観測所</h1>
-      <div class="sub">TECHNICAL SIGNAL BOARD — 移動平均線 / RSI / MACD / ボリンジャーバンド</div>
-    </div>
-    <div class="ticker" id="tickerBox">
-      <div class="price">取得中…</div>
-    </div>
-  </div>
-
-  <nav class="quicknav" id="quicknav"></nav>
-
-  <div class="search-box">
-    <input type="text" id="searchInput" placeholder="銘柄名・コードで検索（例: トヨタ, 7203, AAPL, ソニー）">
-    <button id="searchBtn">検索</button>
-  </div>
-  <div class="search-results" id="searchResults"></div>
-
-  <div id="watchlistPanel"></div>
-
-  <div id="controls" class="controls"></div>
+  <section class="panel hero" id="sec-top">
+    <div class="ticker" id="tickerBox"><div class="price">取得中…</div></div>
+    <a class="mini-verdict" href="#sec-verdict" onclick="navTo(event,'sec-verdict')" aria-label="総合判定へ">
+      <span class="lbl">総合判定</span>
+      <div class="stamp sm" id="miniStamp">…</div>
+    </a>
+  </section>
 
   <div id="content">
     <div class="loading">価格データを読み込んでいます…</div>
@@ -1275,23 +1281,44 @@
   <div id="comparePanel"></div>
 
   <div class="disclaimer">
+    判定は一般的なテクニカル指標を機械的に集計した目安で、投資の勧誘・助言ではありません。
+    <details class="fold"><summary>このツールについて・データについて</summary><div>
     <strong>このツールについて</strong><br>
     これは将来の価格を予測するものではありません。「総合判定スタンプ」とシグナルメーターは、移動平均線・RSI・MACD・ボリンジャーバンド・200日線との距離といった一般的なテクニカル指標を機械的なルールで集計した「現状の目安」であり、買い・売りのタイミングを保証するものではありません。ニュース・決算・マクロ経済の変化などは反映されていません。表示される判定は投資の勧誘・助言ではありません。購入・売却の判断は、ご自身で情報を確認したうえで、自己責任で行ってください。<br><br>
     <strong>データについて</strong><br>
-    価格データは Yahoo Finance の公開情報をサーバー経由で取得しています。5分足・15分足・30分足・1時間足・日足・週足・月足に対応していますが、銘柄や取引所によっては取得できない・更新が遅れる場合があります。5分足・15分足・30分足は直近60日分、1時間足は直近約2年分のみ取得できます。
+    価格データは Yahoo Finance の公開情報をサーバー経由で取得しています。5分足・15分足・30分足・1時間足・日足・週足・月足に対応していますが、銘柄や取引所によっては取得できない・更新が遅れる場合があります。5分足・15分足・30分足は直近1か月分、1時間足は直近約2年分のみ取得できます。
+    </div></details>
   </div>
+</div>
+
+<nav class="tabbar" id="tabbar" aria-label="セクション移動">
+  <button data-go="sec-top" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 8-8"/><path d="M15 7h5v5"/></svg>チャート</button>
+  <button data-go="sec-verdict"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="5" width="14" height="14" rx="2" transform="rotate(-4 12 12)"/><path d="M12 9v6" stroke-linecap="round"/></svg>判定</button>
+  <button data-go="sec-limit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>指値</button>
+  <button data-go="comparePanel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 18l6-7 4 4 8-9"/><path d="M3 12l6 2 4-3 8 2" opacity=".5"/></svg>比較</button>
+</nav>
+
+<div class="scrim" id="scrim" onclick="closePicker()"></div>
+<div class="picker" id="picker" role="dialog" aria-modal="true" aria-label="銘柄を切り替え">
+  <div class="grab"></div>
+  <div class="search">
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <input id="pickInput" type="text" placeholder="銘柄名・コード・読みで検索（例: トヨタ, 7203, AAPL）" autocomplete="off" enterkeyhint="search">
+    <span class="kbd">Esc</span>
+  </div>
+  <div class="list" id="pickList"></div>
 </div>
 
 <script>
 const content = document.getElementById('content');
 const tickerBox = document.getElementById('tickerBox');
-const controlsBox = document.getElementById('controls');
-const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
-const searchResults = document.getElementById('searchResults');
-const watchlistBox = document.getElementById('watchlistPanel');
 const comparePanelBox = document.getElementById('comparePanel');
-const navBox = document.getElementById('quicknav');
+// 再描画のたびに作り直さない部品（render() 後に差し込み先へ移す）
+const chartToolbar = document.createElement('div');
+chartToolbar.className = 'chart-toolbar';
+const watchlistBox = document.createElement('div');
+watchlistBox.id = 'watchlistPanel';
+watchlistBox.style.display = 'contents';
 
 // タッチ専用デバイス（スマホ等）の判定（PCはtooltip、スマホはホバーバーに切り替え）
 const isTouchOnly = window.matchMedia('(hover: none)').matches;
@@ -1446,10 +1473,31 @@ const state = {
   compareSymbols: ['^N225','^GSPC','^IXIC'], // 相対パフォーマンス比較の対象
   comparePeriod: 180, // 比較期間（日数）
   showProjection: false, // 予測シナリオ（将来予測）の表示
+  periodKey: '6M',  // 期間ボタン（PERIOD_DEFS の k）。null は旧URLなどの任意期間
+  ivAuto: true,     // 足を期間から自動で選ぶ
   // 価格チャートの各系列の表示/非表示
   seriesVisible: { price:true, ma25:true, ma75:true, ma200:true, bb:true, proj:true, vwap:false, hl52:false },
   maDays: [25, 75, 200],
 };
+
+// 期間ボタン：期間（カレンダー日数）と、自動で選ぶ足
+const PERIOD_DEFS = [
+  {k:'1D',  label:'1日',   cal:1,    iv:'5m'},
+  {k:'1W',  label:'1週',   cal:7,    iv:'30m'},
+  {k:'1M',  label:'1か月', cal:31,   iv:'1d'},
+  {k:'3M',  label:'3か月', cal:92,   iv:'1d'},
+  {k:'6M',  label:'6か月', cal:183,  iv:'1d'},
+  {k:'1Y',  label:'1年',   cal:366,  iv:'1d'},
+  {k:'5Y',  label:'5年',   cal:1827, iv:'1wk'},
+  {k:'MAX', label:'全期間', cal:null, iv:'1mo'},
+];
+const periodDef = k => PERIOD_DEFS.find(d => d.k === k);
+// 期間ボタンに相当する表示本数（データが足りなければ全部）
+function periodBars(def){
+  const N = fullTimestamps.length;
+  if(!def || def.cal == null) return N;
+  return Math.min(N, Math.max(5, calendarDaysToBars(def.cal)));
+}
 
 // 凡例キー → 価格チャートのデータセット番号
 const SERIES_GROUPS = { price:[0], ma25:[1], ma75:[2], ma200:[3], bb:[4,5], proj:[6,7,8], vwap:[9], hl52:[10,11] };
@@ -2115,8 +2163,8 @@ const candlestickPlugin = {
     const visibleCount = Math.max(1, endIdx - startIdx + 1);
     const slot = chartArea.width / visibleCount;
     const bw = Math.max(1, Math.min(slot*0.6, 14));
-    const colorUp = getCSSVar('--indigo');
-    const colorDown = getCSSVar('--vermillion');
+    const colorUp = getCSSVar('--up');
+    const colorDown = getCSSVar('--down');
     ctx.save();
     ctx.lineWidth = 1;
     for(let i=startIdx;i<=endIdx;i++){
@@ -2291,18 +2339,16 @@ function applyQuote(){
 
   // --- ヘッダーのティッカー ---
   const priceEl = document.getElementById('rtPrice');
-  if(priceEl){
-    priceEl.textContent = curTxt;
-    if(lastQuotePrice != null && price !== lastQuotePrice){
+  if(priceEl && chgPct != null){
+    const chgAbs = quote.change != null ? quote.change : (prev ? price - prev : 0);
+    const scrubbing = !!document.getElementById('heroScrub');
+    heroBase = {price, chg:chgAbs, pct:chgPct};
+    if(!scrubbing) setHeroPrice(price, chgAbs, chgPct, false);
+    if(lastQuotePrice != null && price !== lastQuotePrice && !scrubbing){
       priceEl.classList.remove('flash-up','flash-down');
       void priceEl.offsetWidth;
       priceEl.classList.add(price > lastQuotePrice ? 'flash-up' : 'flash-down');
     }
-  }
-  const chgEl = document.getElementById('rtChange');
-  if(chgEl && chgPct != null){
-    chgEl.className = 'chg ' + (chgPct>=0 ? 'up' : 'down');
-    chgEl.textContent = '前回比 ' + (chgPct>=0?'+':'') + chgPct.toFixed(2) + '%';
   }
   const statusEl = document.getElementById('rtStatus');
   if(statusEl){
@@ -2475,9 +2521,16 @@ async function shareView(){
   }
 }
 
+let _loadSeq = 0;
 async function load(){
+  const seq = ++_loadSeq;
+  updateSymBtn();
   const skelH = window.innerWidth < 600 ? 240 : 360;
-  content.innerHTML = `
+  const curChart = document.getElementById('sec-chart');
+  if(state.symbol === introSymbol && curChart){
+    // 同じ銘柄で期間・足だけ変えたとき：画面は残してチャートを薄くする
+    curChart.classList.add('is-loading');
+  } else content.innerHTML = `
     <div class="skel-panel">
       <div class="skel" style="height:14px;width:130px;margin-bottom:18px;"></div>
       <div class="skel" style="height:${skelH}px;margin-bottom:10px;"></div>
@@ -2495,13 +2548,15 @@ async function load(){
   try{
     // 足種別に取得可能な最大期間が異なる（Yahoo Finance制約）
     const range = state.interval === '60m' ? '2y'
-                : ['5m','15m','30m'].includes(state.interval) ? '3mo'
+                : ['5m','15m','30m'].includes(state.interval) ? '1mo' // 3mo は Yahoo が 422 を返す（分足は60日まで）
                 : state.interval === '1m' ? '5d'
                 : '10y';
     let data = await fetchChart(state.symbol, range, state.interval);
+    if(seq !== _loadSeq) return; // 期間を続けて押したとき、古い取得結果は捨てる
     // 新規上場銘柄などで日足のデータが少なすぎる場合、1時間足に自動切替する
     if(data.closes.length < 30 && state.interval === '1d'){
       const fallback = await fetchChart(state.symbol, '2y', '60m');
+      if(seq !== _loadSeq) return;
       if(fallback.closes.length > data.closes.length){
         data = fallback;
         state.interval = '60m';
@@ -2525,19 +2580,26 @@ async function load(){
       throw new Error('データ件数が少なすぎます（' + fullCloses.length + '件）');
     }
   }catch(err){
+    if(seq !== _loadSeq) return;
     content.innerHTML = `
-      <div class="error">
-        価格データの取得に失敗しました（${err.message}）。<br>
-        銘柄コードが正しいか確認するか、再読み込みしてください。
-      </div>
-      <div style="text-align:center;">
-        <button class="reload-btn" onclick="load()">再読み込み</button>
+      <div class="panel" style="grid-column:1 / -1;">
+        <div data-slot="toolbar"></div>
+        <div class="error">
+          価格データの取得に失敗しました（${err.message}）。<br>
+          銘柄コードが正しいか確認するか、別の期間・再読み込みを試してください。
+        </div>
+        <div style="text-align:center;">
+          <button class="reload-btn" onclick="load()">再読み込み</button>
+        </div>
       </div>`;
+    if(fullTimestamps.length){ renderControls(); content.querySelector('[data-slot="toolbar"]').replaceWith(chartToolbar); moveSegThumb(); }
     tickerBox.innerHTML = '<div class="price">--</div>';
     return;
   }
 
   const N = fullTimestamps.length;
+  if(state.periodKey && !intervalAutoFallback) state.period = periodBars(periodDef(state.periodKey));
+  if(intervalAutoFallback) state.periodKey = null;
   if(state.period > N) state.period = N;
   if(state.volLookback > N) state.volLookback = N;
 
@@ -2562,6 +2624,7 @@ async function load(){
      (quote.marketState === 'REGULAR' || meta.instrumentType === 'CRYPTOCURRENCY')){
     fullCloses[fullCloses.length-1] = quote.price;
   }
+  if(seq !== _loadSeq) return;
 
   introPending = state.symbol !== introSymbol; // 足種・期間の切替では登場演出を繰り返さない
   renderAll();
@@ -2740,7 +2803,25 @@ const PROJ_DAYS_MAX = 1825;
 function setPeriod(d){
   const N = fullTimestamps.length;
   state.period = Math.min(Math.max(5, d), N);
+  state.periodKey = null; // 任意の本数
   renderControls(); render(); updateURL();
+}
+// 期間ボタン：足が変わるときだけ取り直す
+function setPeriodKey(k){
+  const def = periodDef(k);
+  if(!def) return;
+  state.periodKey = k;
+  const iv = state.ivAuto ? def.iv : state.interval;
+  if(iv !== state.interval){
+    state.interval = iv;
+    if(iv !== '1d') state.showProjection = false;
+    renderControls();
+    load();
+    return;
+  }
+  state.period = periodBars(def);
+  // 先に描画してツールバーを差し込み直し、そのあとボタンを作り直す（つまみが滑るように）
+  render(); renderControls(); updateURL();
 }
 function setShowProjection(v){ state.showProjection = v; renderControls(); render(); }
 function setYScale(s){ state.yScale = s; renderControls(); render(); }
@@ -2748,6 +2829,25 @@ function setChartType(t){
   if(state.chartType === t) return;
   state.chartType = t;
   renderControls(); render(); updateURL();
+}
+// 表示メニューの「足」：'auto' は期間から自動で選ぶ
+function setIntervalMode(v){
+  if(v === 'auto'){
+    state.ivAuto = true;
+    const def = periodDef(state.periodKey) || periodDef('6M');
+    state.periodKey = def.k;
+    if(def.iv === state.interval){ renderControls(); return; }
+    state.interval = def.iv;
+    if(def.iv !== '1d') state.showProjection = false;
+    renderControls(); load();
+    return;
+  }
+  state.ivAuto = false;
+  if(state.periodKey == null) state.periodKey = '6M';
+  if(v === state.interval){ renderControls(); return; }
+  state.interval = v;
+  if(v !== '1d') state.showProjection = false;
+  renderControls(); load();
 }
 function setChartInterval(iv){
   if(state.interval === iv) return;
@@ -2770,9 +2870,7 @@ function setProjDays(d){
 function setSymbol(symbol, name){
   state.symbol = symbol;
   state.symbolName = name;
-  searchResults.classList.remove('show');
-  searchInput.value = '';
-  clearTimeout(_searchTimer); _searchSeq++; // 取得中の検索結果が後から開かないように
+  closePicker();
   load();
 }
 
@@ -2807,17 +2905,18 @@ function removeWatch(ev, symbol){
   renderWatchlist();
   if(symbol === state.symbol){
     const btn = document.querySelector('.watch-btn');
-    if(btn){ btn.classList.remove('active'); btn.textContent = '☆ ウォッチリストに追加'; }
+    if(btn){ btn.classList.remove('active'); btn.textContent = '☆ ウォッチ'; }
   }
 }
 
 function renderWatchlist(){
   if(!watchlist.length){
-    watchlistBox.innerHTML = '<p class="watch-empty-hint">右上の「☆ ウォッチリストに追加」で、よく見る銘柄をここに並べられます</p>';
+    watchlistBox.innerHTML = `<div class="panel" id="sec-watch"><div class="section-title">ウォッチリスト</div>
+      <p class="watch-empty-hint">銘柄名の横の「☆ ウォッチ」で、よく見る銘柄をここに並べられます</p></div>`;
     return;
   }
   watchlistBox.innerHTML = `
-    <div class="panel">
+    <div class="panel" id="sec-watch">
       <div class="section-title">ウォッチリスト</div>
       <div class="watch-grid">
         ${watchlist.map(w=>`
@@ -3472,188 +3571,211 @@ async function loadCompareChart(){
   }
 }
 
+// ---------- チャートのツールバー（期間ボタン＋表示メニュー） ----------
+let _viewMenuOpen = false;
 function renderControls(){
-  const pills = (opts, current, setter) => opts.map(o=>
-    `<button class="pill ${o.days===current?'active':''}" onclick="${setter}(${o.days})">${o.label}</button>`
-  ).join('');
-
-  const presetPills = PRESETS.map(p=>
-    `<button class="pill wide ${p.symbol===state.symbol?'active':''}" onclick="setSymbol('${p.symbol}','${p.name}')">${p.name}</button>`
-  ).join('');
-
-  const N = fullTimestamps.length;
-  const customInput = (current, max, setter) => {
-    const def = NUM_SHEET_DEFS[setter]();
-    const isCustom = !def.presets.some(p => p.days === current);
-    return `<button class="pill${isCustom ? ' active' : ''}" onclick="openNumSheet('${setter}')">${isCustom ? `任意 ${current}${def.unit}` : '任意'}</button>`;
-  };
-
-  const periodUnit = state.interval==='1wk' ? '週（任意）' : state.interval==='1mo' ? 'か月（任意）' : isIntraday() ? '本（任意）' : '日（任意）';
-
-  controlsBox.innerHTML = `
-    <div class="control-group">
-      <span class="ctrl-label">銘柄</span>
-      ${presetPills}
+  const IVS = [['auto','自動'],['1m','1分'],['5m','5分'],['15m','15分'],['30m','30分'],['60m','1時間'],['1d','日'],['1wk','週'],['1mo','月']];
+  const ivNow = state.ivAuto ? 'auto' : state.interval;
+  const sw = (on, fn, label, disabled) => `<button class="toggle" role="switch" aria-checked="${on}" aria-label="${label}" onclick="${fn}"${disabled?' disabled':''}></button>`;
+  const ma = JSON.stringify(state.maDays);
+  const isDaily = state.interval === '1d';
+  const N = fullCloses.length;
+  chartToolbar.innerHTML = `
+    <div class="seg" id="periodSeg" role="tablist" aria-label="表示期間">
+      <span class="thumb${state.periodKey ? '' : ' none'}" id="segThumb"></span>
+      ${PERIOD_DEFS.map(d => `<button role="tab" data-k="${d.k}" class="${d.k===state.periodKey?'on':''}" aria-selected="${d.k===state.periodKey}" onclick="setPeriodKey('${d.k}')">${d.label}</button>`).join('')}
     </div>
-    <div class="control-group">
-      <span class="ctrl-label">足</span>
-      <button class="pill ${state.interval==='1m'?'active':''}" onclick="setChartInterval('1m')">1分足</button>
-      <button class="pill ${state.interval==='5m'?'active':''}" onclick="setChartInterval('5m')">5分足</button>
-      <button class="pill ${state.interval==='15m'?'active':''}" onclick="setChartInterval('15m')">15分足</button>
-      <button class="pill ${state.interval==='30m'?'active':''}" onclick="setChartInterval('30m')">30分足</button>
-      <button class="pill ${state.interval==='60m'?'active':''}" onclick="setChartInterval('60m')">1時間足</button>
-      <button class="pill ${state.interval==='1d'?'active':''}" onclick="setChartInterval('1d')">日足</button>
-      <button class="pill ${state.interval==='1wk'?'active':''}" onclick="setChartInterval('1wk')">週足</button>
-      <button class="pill ${state.interval==='1mo'?'active':''}" onclick="setChartInterval('1mo')">月足</button>
-    </div>
-    <div class="control-group">
-      <span class="ctrl-label">表示方式</span>
-      <button class="pill ${state.chartType==='line'?'active':''}" onclick="setChartType('line')">ラインチャート</button>
-      <button class="pill ${state.chartType==='candlestick'?'active':''}" onclick="setChartType('candlestick')">ローソク足</button>
-    </div>
-    <div class="control-group">
-      <span class="ctrl-label">表示期間</span>
-      ${pills(periodOptions(), state.period, 'setPeriod')}
-      ${customInput(state.period, N, 'setPeriod', periodUnit)}
-    </div>
-    <div class="control-group">
-      <span class="ctrl-label">Y軸</span>
-      <button class="pill ${state.yScale==='linear'?'active':''}" onclick="setYScale('linear')">通常</button>
-      <button class="pill ${state.yScale==='log'?'active':''}" onclick="setYScale('log')">対数</button>
-    </div>
-    ${state.interval==='1d' ? `
-    <div class="control-group">
-      <span class="ctrl-label">予測シナリオ</span>
-      <button class="pill ${state.showProjection?'active':''}" onclick="setShowProjection(true)">表示</button>
-      <button class="pill ${!state.showProjection?'active':''}" onclick="setShowProjection(false)">非表示</button>
-    </div>
-    ${state.showProjection ? `
-    <div class="control-group">
-      <span class="ctrl-label">予測算出期間</span>
-      ${pills(volLookbackOptions(), state.volLookback, 'setVolLookback')}
-      ${customInput(state.volLookback, N, 'setVolLookback', '日（任意）')}
-    </div>
-    <div class="control-group">
-      <span class="ctrl-label">予測期間</span>
-      ${pills(projDayOptions, state.projDays, 'setProjDays')}
-      ${customInput(state.projDays, PROJ_DAYS_MAX, 'setProjDays', '日（任意）')}
-    </div>` : ''}` : `
-    <div class="control-group">
-      <span class="ctrl-label">予測シナリオ</span>
-      <span class="legend-hint" style="margin-left:0;">日足以外では表示されません（日足のみ対応）</span>
-    </div>`}
-  `;
+    <div class="view-wrap">
+      <button class="view-btn" id="viewBtn" aria-expanded="${_viewMenuOpen}" aria-label="表示の設定" onclick="toggleViewMenu(event)">
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="4" r="1.8" fill="var(--panel-bg)" stroke="currentColor" stroke-width="1.4"/><circle cx="11" cy="8" r="1.8" fill="var(--panel-bg)" stroke="currentColor" stroke-width="1.4"/><circle cx="7" cy="12" r="1.8" fill="var(--panel-bg)" stroke="currentColor" stroke-width="1.4"/></svg>
+        表示
+      </button>
+      <div class="popover${_viewMenuOpen?' open':''}" id="viewPop" role="menu" onclick="event.stopPropagation()">
+        <div class="opt"><span>ローソク足</span>${sw(state.chartType==='candlestick', `setChartType('${state.chartType==='candlestick'?'line':'candlestick'}')`, 'ローソク足')}</div>
+        <div class="opt"><span>対数目盛<span class="hint">長期の伸び率を比べやすい</span></span>${sw(state.yScale==='log', `setYScale('${state.yScale==='log'?'linear':'log'}')`, '対数目盛')}</div>
+        <div class="opt${isDaily?'':' disabled'}"><span>予測シナリオ<span class="hint">${isDaily?'過去の値動きから統計的な幅を表示':'日足（1か月〜1年）のときだけ使えます'}</span></span>${sw(state.showProjection, `setShowProjection(${!state.showProjection})`, '予測シナリオ', !isDaily)}</div>
+        ${isDaily && state.showProjection ? `
+        <div class="opt col-opt"><span class="hint">予測期間</span><div class="chips">
+          ${projDayOptions.map(o=>`<button class="pill ${o.days===state.projDays?'active':''}" onclick="setProjDays(${o.days})">${o.label}</button>`).join('')}
+          <button class="pill${projDayOptions.some(o=>o.days===state.projDays)?'':' active'}" onclick="openNumSheet('setProjDays')">任意</button>
+        </div></div>
+        <div class="opt col-opt"><span class="hint">予測の算出期間</span><div class="chips">
+          ${volLookbackOptions().map(o=>`<button class="pill ${o.days===state.volLookback?'active':''}" onclick="setVolLookback(${o.days})">${o.label}</button>`).join('')}
+        </div></div>` : ''}
+        <div class="opt-sep"></div>
+        <div class="opt col-opt"><span class="hint">足（ローソク1本の長さ）</span><div class="chips">
+          ${IVS.map(([v,l])=>`<button class="pill ${v===ivNow?'active':''}" onclick="setIntervalMode('${v}')">${l}</button>`).join('')}
+        </div></div>
+        <div class="opt col-opt"><span class="hint">移動平均線の日数</span><div class="chips">
+          <button class="pill ${ma==='[25,75,200]'?'active':''}" onclick="setMaPreset([25,75,200])">25/75/200</button>
+          <button class="pill ${ma==='[20,50,200]'?'active':''}" onclick="setMaPreset([20,50,200])">20/50/200</button>
+          <button class="pill ${ma==='[5,25,75]'?'active':''}" onclick="setMaPreset([5,25,75])">5/25/75</button>
+        </div></div>
+        <div class="opt col-opt"><span class="hint">表示する本数</span><div class="chips">
+          <button class="pill${state.periodKey?'':' active'}" onclick="openNumSheet('setPeriod')">${state.periodKey ? '本数を指定' : `任意 ${state.period}${barUnit()==='本'?'本':barUnit()}`}</button>
+        </div></div>
+        <div class="opt-sep"></div>
+        <div class="opt"><span>値上がりを赤で表示<span class="hint">日本の証券アプリと同じ色</span></span>${sw(document.documentElement.dataset.updown==='jp', 'toggleUpDown()', '値上がりを赤で表示')}</div>
+      </div>
+    </div>`;
+  moveSegThumb();
+}
+// 期間のつまみ：前の位置から新しいボタンへ滑らせる（ツールバーは作り直すので FLIP で）
+let _thumbFrom = null;
+function moveSegThumb(){
+  const seg = chartToolbar.querySelector('#periodSeg'), th = chartToolbar.querySelector('#segThumb');
+  if(!seg || !th || !seg.isConnected) return;
+  const on = seg.querySelector('button.on');
+  if(!on){ th.classList.add('none'); return; }
+  const to = {x:on.offsetLeft, w:on.offsetWidth};
+  if(_thumbFrom && !prefersReducedMotion()){
+    th.style.transition = 'none';
+    th.style.width = _thumbFrom.w + 'px'; th.style.transform = `translateX(${_thumbFrom.x}px)`;
+    th.offsetWidth;
+    th.style.transition = '';
+  }
+  th.style.width = to.w + 'px'; th.style.transform = `translateX(${to.x}px)`;
+  _thumbFrom = to;
+  if(seg.scrollWidth > seg.clientWidth) on.scrollIntoView({block:'nearest', inline:'nearest'});
+}
+addEventListener('resize', () => { _thumbFrom = null; moveSegThumb(); });
+function toggleViewMenu(ev){
+  ev.stopPropagation();
+  _viewMenuOpen = !_viewMenuOpen;
+  const pop = document.getElementById('viewPop');
+  if(pop) pop.classList.toggle('open', _viewMenuOpen);
+  const btn = document.getElementById('viewBtn');
+  if(btn) btn.setAttribute('aria-expanded', _viewMenuOpen);
+}
+function closeViewMenu(){
+  if(!_viewMenuOpen) return;
+  _viewMenuOpen = false;
+  document.getElementById('viewPop')?.classList.remove('open');
+  document.getElementById('viewBtn')?.setAttribute('aria-expanded', false);
+}
+document.addEventListener('click', e => { if(!e.target.closest('.view-wrap')) closeViewMenu(); });
+function toggleUpDown(){
+  const next = document.documentElement.dataset.updown === 'jp' ? 'us' : 'jp';
+  document.documentElement.dataset.updown = next;
+  localStorage.setItem('upDownColor', next);
+  renderControls(); render(); renderWatchlist();
 }
 
-// ---------- search ----------
-let _searchSeq = 0, _searchTimer = null;
-async function doSearch(){
-  clearTimeout(_searchTimer);
-  const q = searchInput.value.trim();
-  if(!q) return;
-  const seq = ++_searchSeq;
-  searchResults.classList.add('show');
-  searchResults.innerHTML = `<div class="search-empty">検索中…</div>`;
+// ---------- 銘柄の切り替え画面（検索＋ウォッチリスト＋定番） ----------
+let _pickSeq = 0, _pickTimer = null, _pickItems = [], _pickReturnFocus = null;
+function openPicker(){
+  _pickReturnFocus = document.activeElement;
+  document.getElementById('scrim').classList.add('open');
+  document.getElementById('picker').classList.add('open');
+  const inp = document.getElementById('pickInput');
+  inp.value = '';
+  renderPickList(null);
+  setTimeout(() => inp.focus(), 60);
+}
+function closePicker(){
+  const pk = document.getElementById('picker');
+  if(!pk.classList.contains('open')) return;
+  pk.classList.remove('open');
+  document.getElementById('scrim').classList.remove('open');
+  clearTimeout(_pickTimer); _pickSeq++;
+  if(_pickReturnFocus && _pickReturnFocus.focus) _pickReturnFocus.focus();
+}
+function renderPickList(results){
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const row = it => `<button class="row" data-s="${esc(it.symbol)}" data-n="${esc(it.name||it.symbol)}"><span class="n">${esc(it.name||it.symbol)}</span>${it.symbol===state.symbol?'<span class="cur">表示中</span>':''}<span class="s">${esc(it.symbol)}${it.exchange?' / '+esc(it.exchange):''}</span></button>`;
+  let html;
+  if(results === 'loading') html = '<div class="empty">検索中…</div>';
+  else if(results instanceof Error) html = `<div class="empty">検索に失敗しました（${esc(results.message)}）</div>`;
+  else if(Array.isArray(results)) html = results.length ? '<div class="grp">検索結果</div>' + results.map(row).join('') : '<div class="empty">該当する銘柄が見つかりませんでした</div>';
+  else {
+    html = '<div class="grp">ウォッチリスト</div>' + (watchlist.length ? watchlist.map(row).join('') : '<div class="empty">銘柄名の横の「☆ ウォッチ」で登録した銘柄がここに並びます</div>');
+    html += '<div class="grp">定番</div>' + PRESETS.map(row).join('');
+  }
+  const list = document.getElementById('pickList');
+  list.innerHTML = html;
+  _pickItems = [...list.querySelectorAll('.row')];
+  _pickItems.forEach(b => b.onclick = () => {
+    if(b.dataset.s === state.symbol){ closePicker(); return; }
+    setSymbol(b.dataset.s, b.dataset.n);
+  });
+}
+async function pickSearch(){
+  clearTimeout(_pickTimer);
+  const q = document.getElementById('pickInput').value.trim();
+  if(!q){ _pickSeq++; renderPickList(null); return; }
+  const seq = ++_pickSeq;
+  renderPickList('loading');
   try{
     const quotes = await searchSymbols(q);
-    if(seq !== _searchSeq) return; // 後から打った検索の結果を古い結果で上書きしない
-    if(!quotes.length){
-      searchResults.innerHTML = `<div class="search-empty">該当する銘柄が見つかりませんでした。</div>`;
-      return;
+    if(seq === _pickSeq) renderPickList(quotes);
+  }catch(err){ if(seq === _pickSeq) renderPickList(err); }
+}
+(function(){
+  const inp = document.getElementById('pickInput');
+  const schedule = () => { clearTimeout(_pickTimer); _pickTimer = setTimeout(pickSearch, 320); };
+  // 入力が止まったら自動で検索（日本語の変換中は待つ）
+  inp.addEventListener('input', e => { if(!e.isComposing) schedule(); });
+  inp.addEventListener('compositionend', schedule);
+  // ↑↓で候補を選び Enter で開く
+  inp.addEventListener('keydown', e => {
+    if(e.isComposing || e.keyCode === 229) return;
+    const cur = _pickItems.findIndex(b => b.classList.contains('kb'));
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      e.preventDefault();
+      if(!_pickItems.length) return;
+      const nx = e.key === 'ArrowDown' ? (cur + 1) % _pickItems.length : (cur <= 0 ? _pickItems.length - 1 : cur - 1);
+      _pickItems.forEach((b, i) => b.classList.toggle('kb', i === nx));
+      _pickItems[nx].scrollIntoView({block:'nearest'});
+    } else if(e.key === 'Enter'){
+      if(cur >= 0) _pickItems[cur].click(); else pickSearch();
     }
-    searchResults.innerHTML = quotes.map(qt=>`
-      <div class="item" onclick="setSymbol('${qt.symbol.replace(/'/g,"\\'")}','${(qt.name||qt.symbol).replace(/'/g,"\\'")}')">
-        <span class="nm">${qt.name}</span>
-        <span class="sym">${qt.symbol}${qt.exchange?(' / '+qt.exchange):''}</span>
-      </div>
-    `).join('');
-  }catch(err){
-    if(seq !== _searchSeq) return;
-    searchResults.innerHTML = `<div class="search-empty">検索に失敗しました（${err.message}）</div>`;
-  }
+  });
+  // / または Ctrl+K で開く、Esc で閉じる
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){ closePicker(); closeViewMenu(); return; }
+    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable;
+    if(!typing && (e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'))){ e.preventDefault(); openPicker(); }
+  });
+})();
+function updateSymBtn(){
+  document.getElementById('symBtnName').textContent = state.symbolName || state.symbol;
+  document.getElementById('symBtnCode').textContent = state.symbol;
 }
-function hideSearchResults(){ searchResults.classList.remove('show'); }
-function scheduleSearch(){
-  clearTimeout(_searchTimer);
-  if(!searchInput.value.trim()){ _searchSeq++; hideSearchResults(); return; }
-  _searchTimer = setTimeout(doSearch, 350);
-}
-searchBtn.addEventListener('click', doSearch);
-// 入力が止まったら自動で検索（日本語の変換中は待つ）
-searchInput.addEventListener('input', e=>{ if(!e.isComposing) scheduleSearch(); });
-searchInput.addEventListener('compositionend', scheduleSearch);
-// ↑↓で候補を選び Enter で開く／Esc で閉じる
-searchInput.addEventListener('keydown', e=>{
-  if(e.isComposing || e.keyCode === 229) return;
-  const items = [...searchResults.querySelectorAll('.item')];
-  const cur = items.findIndex(it=>it.classList.contains('kb'));
-  if((e.key==='ArrowDown' || e.key==='ArrowUp') && searchResults.classList.contains('show') && items.length){
-    e.preventDefault();
-    const next = e.key==='ArrowDown' ? (cur+1) % items.length : (cur<=0 ? items.length-1 : cur-1);
-    items.forEach((it,i)=>it.classList.toggle('kb', i===next));
-    items[next].scrollIntoView({block:'nearest'});
-  } else if(e.key==='Enter'){
-    if(cur >= 0 && searchResults.classList.contains('show')) items[cur].click();
-    else doSearch();
-  } else if(e.key==='Escape'){
-    hideSearchResults();
-  }
-});
-document.addEventListener('click', e=>{
-  if(!e.target.closest('.search-box, #searchResults')) hideSearchResults();
-});
 
 // ---------- quick navigation ----------
 function navTo(e, id){
   e.preventDefault();
   const el = document.getElementById(id);
   if(!el) return;
-  const y = el.getBoundingClientRect().top + window.scrollY - 56;
+  const y = id === 'sec-top' ? 0 : el.getBoundingClientRect().top + window.scrollY - 68;
   window.scrollTo({top:y, behavior: prefersReducedMotion() ? 'auto' : 'smooth'});
 }
 
+// スマホの下部タブバー：押すと移動し、今いる場所が光る
+const TAB_OF_SECTION = {
+  'sec-top':'sec-top', 'sec-chart':'sec-top',
+  'sec-verdict':'sec-verdict', 'sec-indicators':'sec-verdict',
+  'sec-limit':'sec-limit', 'sec-sentiment':'sec-limit', 'sec-tech':'sec-limit', 'sec-volume':'sec-limit',
+  'sec-fundamentals':'sec-limit', 'sec-watch':'sec-limit',
+  'comparePanel':'comparePanel',
+};
+document.querySelectorAll('#tabbar button').forEach(b => b.addEventListener('click', e => navTo(e, b.dataset.go)));
 function renderNav(){
-  const sections = [
-    {id:'sec-chart', label:'チャート'},
-    {id:'sec-verdict', label:'判定'},
-    {id:'sec-indicators', label:'指標'},
-    {id:'sec-sentiment', label:'心理'},
-    {id:'sec-volume', label:'出来高'},
-    {id:'sec-limit', label:'指値'},
-    {id:'sec-fundamentals', label:'企業情報'},
-    {id:'sec-tech', label:'RSI/MACD'},
-    {id:'comparePanel', label:'銘柄比較'},
-  ];
-  const links = sections
-    .filter(s=>document.getElementById(s.id))
-    .map(s=>`<a href="#${s.id}" data-spy="${s.id}" onclick="navTo(event,'${s.id}')">${s.label}</a>`)
-    .join('');
-  navBox.innerHTML = links + `<a class="top-link" href="#" onclick="navTo(event,'top-anchor')">↑ 先頭</a>` +
-    `<button id="themeToggle" class="theme-toggle" onclick="toggleThemeAnimated(event)" aria-label="ダーク/ライト切替"></button>`;
   updateThemeToggle();
   setupScrollSpy();
 }
-
-// スクロール位置に応じてナビの現在地をハイライト
 let spyObserver = null;
 function setupScrollSpy(){
   if(spyObserver) spyObserver.disconnect();
-  const links = [...navBox.querySelectorAll('a[data-spy]')];
-  const visible = new Map();
+  const tabs = [...document.querySelectorAll('#tabbar button')];
   spyObserver = new IntersectionObserver(entries=>{
     entries.forEach(e=>{
-      if(e.isIntersecting) visible.set(e.target.id, e.intersectionRatio);
-      else visible.delete(e.target.id);
+      if(!e.isIntersecting) return;
+      const go = TAB_OF_SECTION[e.target.id];
+      if(go) tabs.forEach(b=>b.classList.toggle('on', b.dataset.go===go));
     });
-    let topId = null, topPos = Infinity;
-    visible.forEach((_,id)=>{
-      const el = document.getElementById(id);
-      const t = el.getBoundingClientRect().top;
-      if(t < topPos){ topPos = t; topId = id; }
-    });
-    links.forEach(a=>a.classList.toggle('current', a.dataset.spy===topId));
-  }, {rootMargin:'-56px 0px -65% 0px', threshold:[0,1]});
-  links.forEach(a=>{ const el=document.getElementById(a.dataset.spy); if(el) spyObserver.observe(el); });
+  }, {rootMargin:'-45% 0px -50% 0px'});
+  Object.keys(TAB_OF_SECTION).forEach(id=>{ const el=document.getElementById(id); if(el) spyObserver.observe(el); });
 }
 
 // ---------- main render ----------
@@ -3673,6 +3795,47 @@ function setupLazyCompare(){
     if(entries[0].isIntersecting){ obs.disconnect(); loadCompareChart(); }
   }, {rootMargin:'200px'});
   obs.observe(panel);
+}
+
+// ---------- ヒーローの価格表示 ----------
+// heroBase は「なぞっていないときの値」。チャートをなぞる間だけ一時的に上書きする
+let heroBase = null;
+function priceHTML(n){
+  const cur = (quote && quote.currency) || meta.currency || '';
+  return fmtPrice(n) + (cur ? `<small>${cur === 'JPY' ? '円' : cur}</small>` : '');
+}
+function setHeroPrice(price, chg, pct, scrub, label){
+  const pEl = document.getElementById('rtPrice'), cEl = document.getElementById('rtChange');
+  if(!pEl || !cEl) return;
+  if(!scrub) heroBase = {price, chg, pct};
+  pEl.innerHTML = priceHTML(price);
+  const sign = chg >= 0 ? '+' : '';
+  cEl.className = 'chg ' + (chg >= 0 ? 'up' : 'down');
+  cEl.textContent = (scrub ? '期間の始めから ' : '前日比 ') + `${sign}${fmtPrice(chg)}（${sign}${pct.toFixed(2)}%）`;
+  const perf = document.getElementById('heroPerf');
+  if(perf) perf.style.visibility = scrub ? 'hidden' : '';
+  let note = document.getElementById('heroScrub');
+  const st = document.getElementById('rtStatus');
+  if(scrub){
+    if(!note && st){ note = document.createElement('div'); note.id = 'heroScrub'; note.className = 'updated scrub-note'; st.before(note); }
+    if(note) note.textContent = label + ' の値';
+    if(st) st.style.display = 'none';
+  } else {
+    if(note) note.remove();
+    if(st) st.style.display = '';
+  }
+}
+// 価格チャートをなぞったとき：その時点の値と「表示期間の始めからの変化」を大きく出す
+function heroScrub(idx){
+  const pc = Chart.getChart('priceChart');
+  if(idx == null || !pc){ if(heroBase) setHeroPrice(heroBase.price, heroBase.chg, heroBase.pct, false); return; }
+  const data = pc.data.datasets[0].data;
+  const v = data[idx];
+  if(v == null){ if(heroBase) setHeroPrice(heroBase.price, heroBase.chg, heroBase.pct, false); return; }
+  // 基準は「いま表示している範囲」の最初の値（ズーム・パン後もそれに合わせる）
+  const s = Math.max(0, Math.ceil(pc.scales.x.min || 0));
+  const first = data.slice(s).find(x => x != null);
+  setHeroPrice(v, v - first, (v / first - 1) * 100, true, pc.data.labels[idx]);
 }
 
 // ---------- motion ----------
@@ -3702,7 +3865,11 @@ function revealPanel(p, i){
 // 銘柄を開いたとき：見えているパネルは順にせり上げ、画面外は見えた時点で出す
 function playIntro(){
   if(introObserver){ introObserver.disconnect(); introObserver = null; }
-  const panels = [...content.querySelectorAll('.panel')];
+  // ヒーローとウォッチリストは作り直さないので、前回の演出クラスを外してから付け直す
+  const hero = document.getElementById('sec-top');
+  const panels = [hero, ...content.querySelectorAll('.panel')];
+  panels.forEach(p => p.classList.remove('intro-rise', 'intro-wait'));
+  void hero.offsetWidth;
   const vh = window.innerHeight;
   // 裏で開かれたタブなど画面の大きさが取れないときは、演出なしでそのまま見せる
   if(!vh || document.hidden) return;
@@ -3751,16 +3918,26 @@ function render(){
   const curMACD = macdFull.macdLine[last];
   const curSignal = macdFull.signalLine[last];
 
-  // --- Ticker ---
+  // --- ヒーロー（銘柄・価格・前日比・期間の騰落） ---
   const watched = isWatched(state.symbol);
+  const startPrice = fullCloses[Math.max(0, N - state.period)];
+  const perfPct = startPrice ? (lastPrice / startPrice - 1) * 100 : null;
+  const perfLabel = state.periodKey ? periodDef(state.periodKey).label : periodLabel(state.period);
+  const prevStatus = document.getElementById('rtStatus')?.innerHTML;
   tickerBox.innerHTML = `
-    <div class="name">${state.symbolName}（${state.symbol}）</div>
-    <div class="price" id="rtPrice">${fmtPriceUnit(lastPrice)}</div>
-    <div class="chg ${chgClass}" id="rtChange">前回比 ${chgSign}${change.toFixed(2)}%</div>
-    <div class="updated" id="rtStatus">日足データに基づく表示</div>
+    <div class="name-row"><span class="nm">${state.symbolName}</span><span class="cd">${state.symbol}</span>
+      <button class="watch-btn ${watched?'active':''}" onclick="toggleWatch()">${watched ? '★ ウォッチ中' : '☆ ウォッチ'}</button></div>
+    <div class="price" id="rtPrice"></div>
+    <div class="chg-row">
+      <span class="chg" id="rtChange"></span>
+      ${perfPct!=null && state.periodKey !== '1D' ? `<span class="period-perf ${perfPct>=0?'up':'down'}" id="heroPerf">${perfLabel}で ${perfPct>=0?'+':''}${perfPct.toFixed(1)}%</span>` : ''}
+    </div>
+    <div class="updated" id="rtStatus">${prevStatus || intervalLabel() + 'データに基づく表示'}</div>
     <div class="freshness" id="rtFresh"></div>
-    <button class="watch-btn ${watched?'active':''}" onclick="toggleWatch()">${watched ? '★ ウォッチリスト解除' : '☆ ウォッチリストに追加'}</button>
   `;
+  setHeroPrice(lastPrice, lastPrice - prevPrice, change, false);
+  updateFreshness();
+  updateSymBtn();
 
   // --- 1. 移動平均トレンド ---
   let maSignal, maTag, maTagClass;
@@ -3875,21 +4052,12 @@ function render(){
   } else {
     const _dark = document.documentElement.dataset.theme === 'dark';
     stampText = '様子見'; stampColor = _dark ? '#7AAFCE' : 'var(--ink-soft)';
-    verdictText = `指標間で方向感が一致していません（買い候補${buyCount}・売り候補${sellCount}・中立${neutralCount}）`;
+    verdictText = '指標間で方向感が一致していません';
     verdictDetail = 'はっきりした偏りが出ていない状態です。エントリーを急がず、もう少し値動きやニュースを確認したい局面、という見方もできます。';
   }
   // ライブ更新で判定が変わったときだけ、スタンプを押し直す
   const stampReplay = !introPending && lastStampText !== null && lastStampText !== stampText;
   lastStampText = stampText;
-
-  const chipsHTML = `
-    <div class="indicator-chips">
-      <span class="chip ${maTagClass}">移動平均線: ${maTag}</span>
-      <span class="chip ${rsiTagClass}">RSI: ${rsiTag}</span>
-      <span class="chip ${bbTagClass}">ボリンジャー: ${bbTag}</span>
-      <span class="chip ${macdTagClass}">MACD: ${macdTag}</span>
-      <span class="chip ${distTagClass}">${state.maDays[2]}日線距離: ${distTag}</span>
-    </div>`;
 
   // --- Display window for charts ---
   const dispN = state.period;
@@ -4140,51 +4308,33 @@ function render(){
     </div>`;
   }
 
+  // --- 判定の根拠：5指標を1行ずつ（タップで説明と詳しい値が開く） ---
+  const sigChev = '<svg class="chev" width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  const sigRow = (name, value, tag, tagClass, lines, about) => `
+    <details class="sig"><summary><span class="nm">${name}</span><span class="val">${value}</span><span class="tag ${tagClass}">${tag}</span>${sigChev}</summary>
+      <div class="body">${lines.map(l=>`<p>${l}</p>`).join('')}<p>${about}</p></div></details>`;
+  const mu = barUnit() === '本' ? '本' : barUnit(); // 移動平均の単位（日・週・か月・本）
   const indicatorsPanelHTML = `
     <div class="panel" id="sec-indicators">
-      <div class="section-title">個別指標</div>
-      <div class="grid">
-        <div class="card">
-          <div class="label">移動平均線${infoTip('一定期間の価格の平均値を結んだ線。短期線が長期線を上抜く（ゴールデンクロス）と上昇トレンド入り、下抜く（デッドクロス）と下降トレンド入りのサインとされます。')}</div>
-          <div class="value">${fmtPrice(lastPrice)}</div>
-          <div class="note">${state.maDays[0]}日線: ${curMA25?fmtPrice(curMA25):'--'}</div>
-          <div class="note">${state.maDays[1]}日線: ${curMA75?fmtPrice(curMA75):'--'}</div>
-          <div class="note">${state.maDays[2]}日線: ${curMA200?fmtPrice(curMA200):'--'}</div>
-          <div class="note">${maSignal}</div>
-          <div class="tag ${maTagClass}">${maTag}</div>
-        </div>
-        <div class="card">
-          <div class="label">RSI（14日）${infoTip('価格の上昇・下落の勢いを0〜100で示す指標。一般的に70以上は「買われすぎ」、30以下は「売られすぎ」の目安とされます。')}</div>
-          <div class="value">${curRSI!==null?curRSI.toFixed(1):'--'}</div>
-          <div class="note">${rsiNote}</div>
-          <div class="tag ${rsiTagClass}">${rsiTag}</div>
-        </div>
-        <div class="card">
-          <div class="label">ボリンジャーバンド（%B）${infoTip('価格が移動平均線からどれだけ離れているかを統計的な幅（標準偏差）で示す指標。%Bが1に近いと上限バンド付近、0に近いと下限バンド付近にあることを意味します。')}</div>
-          <div class="value">${percentB!==null ? percentB.toFixed(2) : '--'}</div>
-          <div class="note">上限: ${curBBUpper?fmtPrice(curBBUpper):'--'} / 下限: ${curBBLower?fmtPrice(curBBLower):'--'}</div>
-          <div class="note">${bbNote}</div>
-          <div class="tag ${bbTagClass}">${bbTag}</div>
-        </div>
-        <div class="card">
-          <div class="label">MACD${infoTip('短期と長期の移動平均線の差から勢いの変化をとらえる指標。MACD線がシグナル線を上抜くと買いシグナル、下抜くと売りシグナルとされます。')}</div>
-          <div class="value">${curMACD!==null?curMACD.toFixed(2):'--'}</div>
-          <div class="note">シグナル: ${curSignal!==null?curSignal.toFixed(2):'--'}</div>
-          <div class="note">${macdNote}</div>
-          <div class="tag ${macdTagClass}">${macdTag}</div>
-        </div>
-        <div class="card">
-          <div class="label">${state.maDays[2]}日線との距離${infoTip('現在の価格が長期移動平均線からどれだけ離れているかを示す割合。長期的な上昇/下降トレンドからの位置や、行き過ぎの度合いを見る目安になります。')}</div>
-          <div class="value">${distMA200!==null ? (distMA200>=0?'+':'')+distMA200.toFixed(1)+'%' : '--'}</div>
-          <div class="note">${distNote}</div>
-          <div class="tag ${distTagClass}">${distTag}</div>
-        </div>
-      </div>
+      <div class="section-title">判定の根拠</div>
+      ${sigRow('移動平均線', fmtPrice(lastPrice), maTag, maTagClass, [
+        `<span class="sub">${state.maDays[0]}${mu} ${curMA25?fmtPrice(curMA25):'--'}／${state.maDays[1]}${mu} ${curMA75?fmtPrice(curMA75):'--'}／${state.maDays[2]}${mu} ${curMA200?fmtPrice(curMA200):'--'}</span>`, maSignal],
+        '一定期間の価格の平均値を結んだ線。短期線が長期線を上抜く（ゴールデンクロス）と上昇トレンド入り、下抜く（デッドクロス）と下降トレンド入りのサインとされます。')}
+      ${sigRow('RSI（14）', curRSI!==null?curRSI.toFixed(1):'--', rsiTag, rsiTagClass, [rsiNote],
+        '価格の上昇・下落の勢いを0〜100で示す指標。一般的に70以上は「買われすぎ」、30以下は「売られすぎ」の目安とされます。')}
+      ${sigRow('ボリンジャーバンド（%B）', percentB!==null ? percentB.toFixed(2) : '--', bbTag, bbTagClass, [
+        `<span class="sub">上限 ${curBBUpper?fmtPrice(curBBUpper):'--'}／下限 ${curBBLower?fmtPrice(curBBLower):'--'}</span>`, bbNote],
+        '価格が移動平均線からどれだけ離れているかを統計的な幅（標準偏差）で示す指標。%Bが1に近いと上限バンド付近、0に近いと下限バンド付近にあることを意味します。')}
+      ${sigRow('MACD', curMACD!==null?curMACD.toFixed(2):'--', macdTag, macdTagClass, [
+        `<span class="sub">シグナル ${curSignal!==null?curSignal.toFixed(2):'--'}</span>`, macdNote],
+        '短期と長期の移動平均線の差から勢いの変化をとらえる指標。MACD線がシグナル線を上抜くと買いシグナル、下抜くと売りシグナルとされます。')}
+      ${sigRow(`${state.maDays[2]}${mu}線との距離`, distMA200!==null ? (distMA200>=0?'+':'')+distMA200.toFixed(1)+'%' : '--', distTag, distTagClass, [distNote],
+        '現在の価格が長期移動平均線からどれだけ離れているかを示す割合。長期的な上昇/下降トレンドからの位置や、行き過ぎの度合いを見る目安になります。')}
     </div>`;
 
   const chartPanelHTML = `
     <div class="panel" id="sec-chart">
-      <div class="section-title">価格チャート${showProj ? `＋統計的シナリオ予測（${periodLabel(dispN)} + 今後${state.projDays}日）` : `（${periodLabel(dispN)}）`}</div>
+      <div data-slot="toolbar"></div>
       ${intervalAutoFallback ? `<div class="info-banner">この銘柄は日足の取得可能なデータが少ないため、自動的に「1時間足・全期間」表示に切り替えました。</div>` : ''}
       <div class="chart-hover-bar${isTouchOnly?' touch-bar':''}" id="priceHoverBar"></div>
       <div class="chart-box"><canvas id="priceChart"></canvas></div>
@@ -4207,18 +4357,12 @@ function render(){
         <button class="leg" onclick="shareView()">🔗 共有</button>
         <span class="legend-hint">ホイールでズーム・ドラッグで移動／クリックで表示切替</span>
       </div>
-      <div class="legend-row legend-row-presets" style="margin-top:4px;">
-        <span class="ctrl-label" style="font-size:10px;">MA一括設定</span>
-        <button class="pill ${JSON.stringify(state.maDays)==='[25,75,200]'?'active':''}" onclick="setMaPreset([25,75,200])">中長期 25/75/200</button>
-        <button class="pill ${JSON.stringify(state.maDays)==='[20,50,200]'?'active':''}" onclick="setMaPreset([20,50,200])">世界基準 20/50/200</button>
-        <button class="pill ${JSON.stringify(state.maDays)==='[5,25,75]'?'active':''}" onclick="setMaPreset([5,25,75])">日本株スイング 5/25/75</button>
-      </div>
       <div class="scenario-note">
-        直近${dispN}${barUnit()}の値幅: ${fmtPrice(recentLow)} 〜 ${fmtPrice(recentHigh)}　/　${state.maDays[2]}日移動平均線: ${curMA200?fmtPrice(curMA200):'--'}<br>
+        ${periodLabel(dispN)}（${intervalLabel()}）の値幅: ${fmtPrice(recentLow)} 〜 ${fmtPrice(recentHigh)}　/　${state.maDays[2]}${mu}移動平均線: ${curMA200?fmtPrice(curMA200):'--'}<br>
         ${showProj ? `過去${state.volLookback}日のボラティリティ（年率換算 約${proj.annualizedVol.toFixed(0)}%）をもとに、400通りのランダムな値動きパターンをシミュレーションした結果です。<br>
         ${state.projDays}日後の中央シナリオ: ${fmtPrice(projEnd)}（現在比 ${((projEnd/lastPrice-1)*100>=0?'+':'')}${((projEnd/lastPrice-1)*100).toFixed(1)}%）、想定レンジ: ${fmtPrice(proj.lower[proj.lower.length-1])} 〜 ${fmtPrice(proj.upper[proj.upper.length-1])}<br>
         これは「過去と同じ程度の変動が続いた場合に統計的にありえる範囲」を示すものであり、実際の方向性を示すものではありません。ニュースや決算、マクロ経済の変化などは反映されていません。算出期間を変えると結果も変わります。`
-        : `年率換算ボラティリティ 約${proj.annualizedVol.toFixed(0)}%。予測シナリオは「予測シナリオ：表示」で表示できます。`}
+        : `年率換算ボラティリティ 約${proj.annualizedVol.toFixed(0)}%。予測シナリオは右上の「表示」から出せます（日足のとき）。`}
       </div>
     </div>`;
 
@@ -4264,30 +4408,28 @@ function render(){
       </div>`;
   }
 
-  content.innerHTML = `
-    ${chartPanelHTML}
-
+  const verdictPanelHTML = `
     <div class="panel ${stampReplay ? 'verdict-replay' : ''}" id="sec-verdict">
-      <div class="section-title">総合判定スタンプ</div>
-      <div class="stamp-row">
+      <div class="section-title">総合判定</div>
+      <div class="verdict-main">
         <div class="stamp" style="--stamp-color:${stampColor}">${stampText}</div>
-        <div class="stamp-desc">
+        <div>
           <p class="verdict" style="--stamp-color:${stampColor}">${verdictText}</p>
           <p>${verdictDetail}</p>
-          ${chipsHTML}
         </div>
       </div>
       <div class="meter-wrap">
         ${scoreMeterSVG(score)}
       </div>
-    </div>
+      <div class="counts">
+        <span>注目側<b style="color:var(--indigo)">${buyCount}</b></span>
+        <span>中立<b>${neutralCount}</b></span>
+        <span>過熱側<b style="color:var(--vermillion)">${sellCount}</b></span>
+      </div>
+      <div class="basis-note">${intervalLabel()}の終値から計算しています。根拠は「判定の根拠」で確認できます。</div>
+    </div>`;
 
-    ${indicatorsPanelHTML}
-
-    <div class="info-band">
-    <div class="info-col-left">
-    ${fngPanelHTML}
-
+  const volumePanelHTML = `
     <div class="panel" id="sec-volume">
       <div class="section-title">出来高（${periodLabel(dispN)}）${infoTip('一定期間内に売買が成立した株数の合計。価格の動きに出来高が伴っているかどうかでトレンドの信頼性を確認できます。出来高を伴いながら価格が上昇する場合は強い買い圧力のサイン、出来高が少ない中での価格変動は「だまし」の可能性があります。')}</div>
       ${hasVolume ? `
@@ -4299,14 +4441,14 @@ function render(){
           ? `${intervalLabel()}では出来高データを取得できません。日足・週足に切り替えると表示できる場合があります。`
           : 'この銘柄では出来高データを取得できません。'
       }</div>`}
-    </div>
-    </div><!-- /.info-col-left -->
+    </div>`;
 
+  const limitPanelHTML = `
     <div class="panel" id="sec-limit">
-      <div class="section-title">指値の目安（統計ベースの参考値）</div>
+      <div class="section-title">指値の目安</div>
       ${quoteInfoHTML}
       <table class="limit-table">
-        <thead><tr><th></th><th>1週間程度の目安</th><th>1ヶ月程度の目安</th></tr></thead>
+        <thead><tr><th></th><th>1週間</th><th>1か月</th></tr></thead>
         <tbody>
           <tr class="sell"><td>売り指値（強め, +2σ）</td><td>${fmtPrice(limitHorizons[0].sell2)}</td><td>${fmtPrice(limitHorizons[1].sell2)}</td></tr>
           <tr class="sell"><td>売り指値（目安, +1σ）</td><td>${fmtPrice(limitHorizons[0].sell1)}</td><td>${fmtPrice(limitHorizons[1].sell1)}</td></tr>
@@ -4322,13 +4464,15 @@ function render(){
           ? `<button class="pill active" onclick="openNumSheet('setVolLookback')">任意 ${state.volLookback}日</button>`
           : `<button class="pill" onclick="openNumSheet('setVolLookback')">任意</button>`}
       </div>
-      <div class="scenario-note">
+      <details class="fold"><summary>この数字の見かた</summary><div>
         σ（シグマ）は上記の「算出期間」（${state.volLookback}日）から計算した1日あたりの変動率です。±1σ・±2σは、過去と同程度の変動が続いた場合に統計的に到達しうる価格の目安であり、実際にその価格まで動く・約定する保証はありません。指値の発注は、ご自身の判断と責任で行ってください。
-      </div>
-    </div>
-    </div><!-- /.info-band -->
+      </div></details>
+    </div>`;
 
-    ${fundamentalsPanelHTML}
+  content.innerHTML = `
+  <div class="col col-main">
+    ${chartPanelHTML}
+    ${indicatorsPanelHTML}
 
     <div class="panel" id="sec-tech">
       <div class="section-title">オシレーター（RSI / MACD）</div>
@@ -4347,7 +4491,24 @@ function render(){
         </div>
       </div>
     </div>
+    ${volumePanelHTML}
+    ${fundamentalsPanelHTML}
+  </div>
+  <div class="col col-side">
+    ${verdictPanelHTML}
+    ${limitPanelHTML}
+    ${fngPanelHTML}
+    <div data-slot="watch"></div>
+  </div>
   `;
+  // 作り直さない部品（期間ボタン・ウォッチリスト）を差し込み、ヒーローの判子を合わせる
+  content.querySelector('[data-slot="toolbar"]')?.replaceWith(chartToolbar);
+  content.querySelector('[data-slot="watch"]')?.replaceWith(watchlistBox);
+  moveSegThumb();
+  const mini = document.getElementById('miniStamp');
+  mini.textContent = stampText;
+  mini.style.setProperty('--stamp-color', stampColor);
+  if(stampReplay){ mini.classList.remove('replay'); void mini.offsetWidth; mini.classList.add('replay'); }
 
   if(introPending){
     introPending = false;
@@ -4355,6 +4516,7 @@ function render(){
     playIntro();
   } else if(introObserver){
     introObserver.disconnect(); introObserver = null;
+    document.querySelectorAll('.intro-wait').forEach(p => p.classList.remove('intro-wait'));
   }
 
   // Price chart
@@ -4384,6 +4546,7 @@ function render(){
     options:{
       responsive:true, maintainAspectRatio:false,
       interaction: HOVER_INTERACTION,
+      onHover: (e, els) => heroScrub(els.length ? els[0].index : null),
       plugins:{
         legend:{display:false},
         currentValueLine:{ value:lastPrice, label:'現在 '+fmtPrice(lastPrice), color:T.ink },
@@ -4421,6 +4584,9 @@ function render(){
   });
   priceChartInst.candlestickData = state.chartType==='candlestick' ? ohlcData : null;
   priceChartInst.candlestickVisible = state.seriesVisible.price;
+  // 指を離した・カーソルが出たら、ヒーローの価格を現在値に戻す
+  priceChartInst.canvas.addEventListener('mouseleave', () => heroScrub(null));
+  priceChartInst.canvas.addEventListener('touchend', () => setTimeout(() => heroScrub(null), 900));
   // 決算日・配当落ち日マーカー（日足/週足/月足のみ。未来日付がチャート範囲内のときだけ描画）
   priceChartInst.$eventMarkers = (() => {
     if(!fundamentals || isIntraday()) return [];
@@ -4571,8 +4737,8 @@ function updateURL(){
     s: state.symbol,
     i: state.interval,
     t: state.chartType,
-    p: state.period,
   });
+  if(state.periodKey) params.set('pk', state.periodKey); else params.set('p', state.period);
   if(state.symbolName) params.set('sn', state.symbolName);
   history.replaceState(null, '', '?' + params.toString());
 }
@@ -4583,7 +4749,17 @@ function readURLParams(){
   if(p.get('s')){ state.symbol = p.get('s'); state.symbolName = p.get('sn') || state.symbol; }
   if(p.get('i') && VALID_IV.includes(p.get('i'))) state.interval = p.get('i');
   if(p.get('t') && ['candlestick','line','ohlc'].includes(p.get('t'))) state.chartType = p.get('t');
-  if(p.get('p') && !isNaN(+p.get('p'))) state.period = +p.get('p');
+  const pk = p.get('pk');
+  if(pk && periodDef(pk)){
+    state.periodKey = pk;
+    state.ivAuto = periodDef(pk).iv === state.interval;
+  } else if(p.get('p') && !isNaN(+p.get('p')) && state.interval !== '1d'){
+    // 足を変えていた旧形式のリンク：その足と本数のまま開く
+    state.periodKey = null; state.period = +p.get('p'); state.ivAuto = false;
+  } else {
+    // 旧形式（日足）や指定なし：期間ボタンの既定で開く
+    state.interval = periodDef(state.periodKey).iv; state.ivAuto = true;
+  }
 }
 
 // ---------- localStorage helpers ----------
