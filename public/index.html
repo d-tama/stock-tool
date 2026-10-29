@@ -3704,6 +3704,8 @@ function playIntro(){
   if(introObserver){ introObserver.disconnect(); introObserver = null; }
   const panels = [...content.querySelectorAll('.panel')];
   const vh = window.innerHeight;
+  // 裏で開かれたタブなど画面の大きさが取れないときは、演出なしでそのまま見せる
+  if(!vh || document.hidden) return;
   let i = 0;
   introObserver = new IntersectionObserver(entries=>{
     entries.forEach(e=>{
