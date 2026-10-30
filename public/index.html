@@ -989,6 +989,63 @@
   .hero-watch .watch-empty-hint{text-align:left; padding:0;}
   .hero-watch .watch-grid{display:flex; flex-wrap:nowrap; gap:10px; overflow-x:auto; scrollbar-width:thin; padding:2px 2px 6px;}
   .hero-watch .watch-card{flex:0 0 168px; min-width:168px;}
+  /* 横送り：続きがある側の端をぼかし、PC はマウスを乗せると矢印を出す */
+  .watch-scroller{position:relative; min-width:0;}
+  .hero-watch .watch-grid{position:relative; scrollbar-width:none;}
+  .hero-watch .watch-grid::-webkit-scrollbar{display:none;}
+  .watch-scroller.can-right .watch-grid{-webkit-mask-image:linear-gradient(to right, #000 calc(100% - 48px), transparent); mask-image:linear-gradient(to right, #000 calc(100% - 48px), transparent);}
+  .watch-scroller.can-left .watch-grid{-webkit-mask-image:linear-gradient(to right, transparent, #000 48px); mask-image:linear-gradient(to right, transparent, #000 48px);}
+  .watch-scroller.can-left.can-right .watch-grid{-webkit-mask-image:linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent); mask-image:linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent);}
+  .watch-nav{position:absolute; top:50%; z-index:2; width:32px; height:32px; margin-top:-16px; border-radius:50%;
+    display:grid; place-items:center; border:1px solid var(--line); background:var(--panel-bg); color:var(--ink); cursor:pointer;
+    box-shadow:0 2px 10px rgba(0,0,0,.18); opacity:0; visibility:hidden; transform:scale(.9);
+    transition:opacity 120ms var(--ease-in), transform 120ms var(--ease-in), visibility 0s linear 120ms, border-color 180ms var(--ease-std);}
+  .watch-nav:hover{border-color:var(--ink-soft);}
+  .watch-nav:active{transform:scale(.92);}
+  .watch-nav.prev{left:-4px;} .watch-nav.next{right:-4px;}
+  @media(hover:hover){
+    .watch-scroller.can-left:hover .watch-nav.prev, .watch-scroller.can-right:hover .watch-nav.next,
+    .watch-scroller.can-left .watch-nav.prev:focus-visible, .watch-scroller.can-right .watch-nav.next:focus-visible{
+      opacity:1; visibility:visible; transform:none;
+      transition:opacity 180ms var(--ease-out), transform 220ms var(--ease-pop), visibility 0s, border-color 180ms var(--ease-std);}
+  }
+  /* 見出しの「一覧で見る」 */
+  .watch-all{margin-left:auto; display:inline-flex; align-items:center; gap:3px; border:none; background:none; cursor:pointer;
+    font-family:'Zen Kaku Gothic New', sans-serif; font-size:11.5px; letter-spacing:.04em; color:var(--ink-soft); padding:2px 4px; border-radius:6px;
+    transition:color 180ms var(--ease-std), background-color 180ms var(--ease-std);}
+  .watch-all:hover{color:var(--ink); background:color-mix(in srgb, var(--ink) 6%, transparent);}
+
+  /* ウォッチリストの一覧（モーダル）。開き方・閉じ方は銘柄切り替えの窓と同じ */
+  .picker.watch-modal{top:8vh; width:min(760px, calc(100vw - 32px)); max-height:82vh;}
+  .wm-head{display:flex; align-items:center; gap:10px; padding:16px 18px 8px;}
+  .wm-head h2{font-family:'Shippori Mincho', serif; font-size:16px; letter-spacing:.12em; margin:0; display:flex; align-items:center; gap:8px;}
+  .wm-head h2 span{font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0; padding:0 7px; border-radius:8px; background:color-mix(in srgb, var(--ink) 8%, transparent);}
+  .wm-close{margin-left:auto; width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:transparent; color:var(--ink); font-size:16px; cursor:pointer;}
+  .wm-close:hover{border-color:var(--ink-soft);}
+  .wm-sort{display:flex; gap:6px; padding:0 18px 10px; overflow-x:auto; scrollbar-width:none; border-bottom:1px solid var(--line);}
+  .wm-sort::-webkit-scrollbar{display:none;}
+  .wm-sort .pill{padding:4px 12px; font-size:12px; font-family:'Zen Kaku Gothic New', sans-serif;}
+  .wm-row{display:grid; grid-template-columns:minmax(0,1fr) 120px 110px 76px 64px; align-items:center; gap:14px; width:100%;
+    text-align:left; border:none; background:none; color:var(--ink); cursor:pointer; padding:10px 10px; border-radius:10px;
+    font-family:inherit; transition:background-color 120ms var(--ease-std);}
+  .wm-row:hover, .wm-row:focus-visible{background:color-mix(in srgb, var(--ink) 7%, transparent); outline:none;}
+  .wm-row.active{box-shadow:inset 3px 0 0 var(--indigo);}
+  .wm-name{min-width:0; display:flex; flex-direction:column;}
+  .wm-name b{font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .wm-name small{font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--ink-soft);}
+  .wm-spark{width:120px; height:30px; display:block;}
+  .wm-price{font-family:'JetBrains Mono', monospace; font-weight:700; font-size:14px; text-align:right; font-variant-numeric:tabular-nums;}
+  .wm-chg{font-family:'JetBrains Mono', monospace; font-size:12.5px; text-align:right;}
+  .wm-row .watch-verdict{justify-self:end;}
+  @media(max-width:640px){
+    .picker.watch-modal{top:auto; width:auto; max-height:88vh;}
+    .wm-row{grid-template-columns:minmax(0,1fr) 56px auto; gap:4px 10px; padding:9px 8px;}
+    .wm-name{grid-column:1; grid-row:1;}
+    .wm-row .watch-verdict{grid-column:1; grid-row:2; justify-self:start;}
+    .wm-spark{grid-column:2; grid-row:1 / span 2; width:56px; height:26px;}
+    .wm-price{grid-column:3; grid-row:1;}
+    .wm-chg{grid-column:3; grid-row:2;}
+  }
   /* カードの下段：前日比と、その銘柄の総合判定 */
   .watch-foot{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:2px;}
   .watch-foot .watch-chg{margin-top:0;}
@@ -1013,7 +1070,7 @@
     .hero{grid-template-columns:minmax(0,1fr) auto; gap:12px; padding:16px;}
     .hero-watch{grid-column:1 / -1;}
     .hero-watch{border-left:none; padding-left:0; border-top:1px solid color-mix(in srgb, var(--line) 70%, transparent); padding-top:12px;}
-    .hero-watch .watch-grid{scrollbar-width:none; background:var(--scroll-shadow), var(--panel-bg);}
+    .hero-watch .watch-grid{scrollbar-width:none; background:none;}
     .hero-watch .watch-grid::-webkit-scrollbar{display:none;}
     .hero-watch .watch-card{flex:0 0 150px; min-width:150px;}
   }
@@ -1376,6 +1433,16 @@
     <span class="kbd">Esc</span>
   </div>
   <div class="list" id="pickList"></div>
+</div>
+<div class="scrim" id="watchScrim" onclick="closeWatchModal()"></div>
+<div class="picker watch-modal" id="watchModal" role="dialog" aria-modal="true" aria-labelledby="wmTitle">
+  <div class="grab"></div>
+  <div class="wm-head">
+    <h2 id="wmTitle">ウォッチリスト<span id="wmCount"></span></h2>
+    <button class="wm-close" onclick="closeWatchModal()" aria-label="閉じる">×</button>
+  </div>
+  <div class="wm-sort" id="wmSort" role="group" aria-label="並べ替え"></div>
+  <div class="list" id="wmList"></div>
 </div>
 
 <script>
@@ -3084,8 +3151,17 @@ function renderWatchlist(){
       <p class="watch-empty-hint">銘柄名の横の「☆ ウォッチ」で、よく見る銘柄をここに並べられます</p>`;
     return;
   }
+  // 描き直しても横の位置を保つ（銘柄を切り替えたときは、開いた銘柄のカードを見える位置へ送る）
+  const prevGrid = watchlistBox.querySelector('.watch-grid');
+  const prevLeft = prevGrid ? prevGrid.scrollLeft : 0;
+  const symbolChanged = watchlistBox.dataset.symbol !== state.symbol;
+  watchlistBox.dataset.symbol = state.symbol;
   watchlistBox.innerHTML = `
-      <div class="watch-head">ウォッチリスト<span>${watchlist.length}</span></div>
+      <div class="watch-head">ウォッチリスト<span>${watchlist.length}</span>
+        <button class="watch-all" onclick="openWatchModal()" aria-haspopup="dialog">一覧で見る<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6 4.5 9.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
+      <div class="watch-scroller">
+      <button class="watch-nav prev" aria-label="前の銘柄へ" onclick="scrollWatch(-1)"><svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="watch-nav next" aria-label="次の銘柄へ" onclick="scrollWatch(1)"><svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6 4.5 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div class="watch-grid">
         ${watchlist.map(w=>`
           <div class="watch-card ${w.symbol===state.symbol?'active':''} ${w.symbol===justWatched?'card-in':''}" draggable="true" onclick="if(!window._wDrag)setSymbol('${w.symbol.replace(/'/g,"\\'")}','${(w.name||w.symbol).replace(/'/g,"\\'")}')">
@@ -3097,12 +3173,116 @@ function renderWatchlist(){
             <div class="watch-foot"><div class="watch-chg" id="wchg-${cssSafe(w.symbol)}"></div><span class="watch-verdict" id="wverdict-${cssSafe(w.symbol)}"></span></div>
           </div>
         `).join('')}
+      </div>
       </div>`;
 
+  setupWatchScroll(prevLeft, symbolChanged);
   refreshWatchlistPrices();
   loadWatchlistSparklines();
   setupWatchlistDrag();
 }
+
+// ---- ウォッチリストの横送り（PC はホイールでも横に動く・左右の矢印で数枚ずつ送る） ----
+function watchGrid(){ return watchlistBox.querySelector('.watch-grid'); }
+function updateWatchEdges(){
+  const g = watchGrid(), sc = watchlistBox.querySelector('.watch-scroller');
+  if(!g || !sc) return;
+  const max = g.scrollWidth - g.clientWidth;
+  sc.classList.toggle('can-left', g.scrollLeft > 2);
+  sc.classList.toggle('can-right', g.scrollLeft < max - 2);
+}
+function scrollWatch(dir){
+  const g = watchGrid();
+  if(!g) return;
+  g.scrollBy({left: dir * Math.max(160, g.clientWidth * 0.8), behavior: prefersReducedMotion() ? 'auto' : 'smooth'});
+}
+function setupWatchScroll(prevLeft, symbolChanged){
+  const g = watchGrid();
+  if(!g) return;
+  g.scrollLeft = prevLeft;
+  if(symbolChanged){
+    const act = g.querySelector('.watch-card.active');
+    if(act && (act.offsetLeft < g.scrollLeft || act.offsetLeft + act.offsetWidth > g.scrollLeft + g.clientWidth)){
+      g.scrollLeft = Math.max(0, act.offsetLeft - 40);
+    }
+  }
+  g.addEventListener('scroll', updateWatchEdges, {passive:true});
+  // 縦のホイールを横の動きに変える。端まで行ったらページの縦スクロールに任せる
+  g.addEventListener('wheel', e => {
+    if(e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // 横スクロールできる機器はそのまま
+    const max = g.scrollWidth - g.clientWidth;
+    if(max <= 0) return;
+    const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? g.clientWidth : 1);
+    if((dy < 0 && g.scrollLeft <= 0) || (dy > 0 && g.scrollLeft >= max - 1)) return;
+    e.preventDefault();
+    g.scrollLeft += dy;
+  }, {passive:false});
+  updateWatchEdges();
+}
+addEventListener('resize', updateWatchEdges);
+
+// ---- ウォッチリストの一覧（モーダル）：全銘柄を1行ずつ並べて見比べる ----
+const watchStats = {};   // 銘柄ごとの {price, chg, verdict, spark}（カードの更新時にたまる）
+let watchModalOpen = false, _watchModalReturn = null;
+let watchSort = 'order';
+try{ watchSort = localStorage.getItem('watchSort') || 'order'; }catch(e){}
+const WATCH_SORTS = [['order','登録順'], ['up','値上がり順'], ['down','値下がり順'], ['verdict','判定順']];
+function openWatchModal(){
+  _watchModalReturn = document.activeElement;
+  watchModalOpen = true;
+  renderWatchModal();
+  document.getElementById('watchScrim').classList.add('open');
+  document.getElementById('watchModal').classList.add('open');
+  setTimeout(() => document.querySelector('#wmList .wm-row')?.focus(), 60);
+}
+function closeWatchModal(){
+  if(!watchModalOpen) return;
+  watchModalOpen = false;
+  document.getElementById('watchScrim').classList.remove('open');
+  document.getElementById('watchModal').classList.remove('open');
+  if(_watchModalReturn && _watchModalReturn.focus) _watchModalReturn.focus();
+}
+function setWatchSort(k){
+  watchSort = k;
+  try{ localStorage.setItem('watchSort', k); }catch(e){}
+  renderWatchModal();
+}
+function renderWatchModal(){
+  const list = document.getElementById('wmList');
+  if(!list) return;
+  document.getElementById('wmCount').textContent = watchlist.length;
+  document.getElementById('wmSort').innerHTML = WATCH_SORTS.map(([k, l]) =>
+    `<button class="pill ${k===watchSort?'active':''}" onclick="setWatchSort('${k}')">${l}</button>`).join('');
+  if(!watchlist.length){
+    list.innerHTML = '<div class="empty">銘柄名の横の「☆ ウォッチ」で登録した銘柄がここに並びます</div>';
+    return;
+  }
+  const VRANK = {buy:0, neutral:1, sell:2};
+  const chgOf = s => watchStats[s]?.chg ?? null;
+  const rows = watchlist.map((w, i) => ({...w, i}));
+  if(watchSort === 'up') rows.sort((a, b) => (chgOf(b.symbol) ?? -1e9) - (chgOf(a.symbol) ?? -1e9));
+  else if(watchSort === 'down') rows.sort((a, b) => (chgOf(a.symbol) ?? 1e9) - (chgOf(b.symbol) ?? 1e9));
+  else if(watchSort === 'verdict') rows.sort((a, b) =>
+    (VRANK[watchStats[a.symbol]?.verdict?.cls] ?? 3) - (VRANK[watchStats[b.symbol]?.verdict?.cls] ?? 3) || a.i - b.i);
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  list.innerHTML = rows.map(w => {
+    const st = watchStats[w.symbol] || {};
+    const chg = st.chg;
+    const spark = st.spark && st.spark.length >= 2 ? sparklineInner('wmf-' + cssSafe(w.symbol), st.spark) : '';
+    return `<button class="wm-row ${w.symbol===state.symbol?'active':''}" data-s="${esc(w.symbol)}" data-n="${esc(w.name||w.symbol)}">
+      <span class="wm-name"><b>${esc(w.name||w.symbol)}</b><small>${esc(w.symbol)}</small></span>
+      <svg class="wm-spark" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true">${spark}</svg>
+      <span class="wm-price">${st.price != null ? fmtPrice(st.price) : '…'}</span>
+      <span class="wm-chg ${chg == null ? '' : chg >= 0 ? 'up' : 'down'}">${chg == null ? '' : (chg>=0?'+':'') + chg.toFixed(2) + '%'}</span>
+      <span class="watch-verdict ${st.verdict?.cls || ''}">${st.verdict?.text || ''}</span>
+    </button>`;
+  }).join('');
+  list.querySelectorAll('.wm-row').forEach(b => b.onclick = () => {
+    closeWatchModal();
+    if(b.dataset.s !== state.symbol) setSymbol(b.dataset.s, b.dataset.n);
+  });
+}
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeWatchModal(); });
 
 // ---- MA ボトムシート ----
 let _maSheetIdx = null, _maSheetOrigVal = null, _maSheetSwipeReady = false;
@@ -3510,6 +3690,13 @@ function setupWatchlistDrag(){
 function renderSparklineSvg(id, closes){
   const svg = document.getElementById('spark-' + id);
   if(!svg || closes.length < 2) return;
+  svg.innerHTML = sparklineInner('sf-' + id, closes);
+  const isUp = closes[closes.length - 1] >= closes[0];
+  const card = svg.closest('.watch-card');
+  if(card){ card.classList.toggle('trend-up', isUp); card.classList.toggle('trend-down', !isUp); }
+}
+// 線グラフの中身（viewBox 0 0 120 36）。カードと一覧の窓で共通
+function sparklineInner(fillId, closes){
   const min = Math.min(...closes);
   const max = Math.max(...closes);
   const range = max - min || 1;
@@ -3521,8 +3708,7 @@ function renderSparklineSvg(id, closes){
   }).join(' ');
   const isUp = closes[closes.length - 1] >= closes[0];
   const color = getCSSVar(isUp ? '--up' : '--down');
-  const fillId = 'sf-' + id;
-  svg.innerHTML = `
+  return `
     <defs>
       <linearGradient id="${fillId}" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${color}" stop-opacity="0.18"/>
@@ -3531,8 +3717,6 @@ function renderSparklineSvg(id, closes){
     </defs>
     <polygon points="${pts} ${(W-pad).toFixed(1)},${(H-pad).toFixed(1)} ${pad},${(H-pad).toFixed(1)}" fill="url(#${fillId})"/>
     <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-  const card = svg.closest('.watch-card');
-  if(card){ card.classList.toggle('trend-up', isUp); card.classList.toggle('trend-down', !isUp); }
 }
 
 // 総合判定と同じ基準で、日足の終値だけから判定する（ウォッチリストのカード用）
@@ -3572,6 +3756,8 @@ async function loadWatchlistSparklines(){
       }
       if(c.closes.length >= 2) renderSparklineSvg(cssSafe(w.symbol), c.closes.slice(-60));
       const v = quickVerdict(c.closes, state.maDays);
+      watchStats[w.symbol] = {...watchStats[w.symbol], spark: c.closes.slice(-60), verdict: v};
+      if(watchModalOpen) renderWatchModal();
       const el = document.getElementById('wverdict-' + cssSafe(w.symbol));
       if(el && v){ el.textContent = v.text; el.className = 'watch-verdict ' + v.cls; }
     }catch(e){}
@@ -3601,6 +3787,8 @@ function refreshWatchlistPrices(){
       chgEl.className = 'watch-chg ' + (chg>=0 ? 'up' : 'down');
       chgEl.textContent = (chg>=0?'+':'') + chg.toFixed(2) + '%';
     }
+    watchStats[w.symbol] = {...watchStats[w.symbol], price: q.price, chg};
+    if(watchModalOpen) renderWatchModal();
   });
 }
 
