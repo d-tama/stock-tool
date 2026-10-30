@@ -641,8 +641,6 @@
     font-size:15px; line-height:1; cursor:pointer; padding:2px;
   }
   .watch-remove:hover{color:var(--vermillion);}
-  .watch-card[draggable="true"]{ cursor:grab; }
-  .watch-card[draggable="true"]:active{ cursor:grabbing; }
   .watch-card.dragging{ opacity:0.35; cursor:grabbing; }
   .watch-card.drag-over{ outline:2px solid var(--indigo); outline-offset:-1px; }
   .theme-toggle {
@@ -991,7 +989,9 @@
   .hero-watch .watch-card{flex:0 0 168px; min-width:168px;}
   /* 横送り：続きがある側の端をぼかし、PC はマウスを乗せると矢印を出す */
   .watch-scroller{position:relative; min-width:0;}
-  .hero-watch .watch-grid{position:relative; scrollbar-width:none;}
+  .hero-watch .watch-grid{position:relative; scrollbar-width:none; user-select:none; -webkit-user-select:none;}
+  /* ドラッグで横に動かしている間は、カードのホバーの浮き上がりを止める */
+  .watch-grid.drag-scrolling .watch-card{transform:none !important; transition:none;}
   .hero-watch .watch-grid::-webkit-scrollbar{display:none;}
   .watch-scroller.can-right .watch-grid{-webkit-mask-image:linear-gradient(to right, #000 calc(100% - 48px), transparent); mask-image:linear-gradient(to right, #000 calc(100% - 48px), transparent);}
   .watch-scroller.can-left .watch-grid{-webkit-mask-image:linear-gradient(to right, transparent, #000 48px); mask-image:linear-gradient(to right, transparent, #000 48px);}
@@ -3164,7 +3164,7 @@ function renderWatchlist(){
       <button class="watch-nav next" aria-label="次の銘柄へ" onclick="scrollWatch(1)"><svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6 4.5 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div class="watch-grid">
         ${watchlist.map(w=>`
-          <div class="watch-card ${w.symbol===state.symbol?'active':''} ${w.symbol===justWatched?'card-in':''}" draggable="true" onclick="if(!window._wDrag)setSymbol('${w.symbol.replace(/'/g,"\\'")}','${(w.name||w.symbol).replace(/'/g,"\\'")}')">
+          <div class="watch-card ${w.symbol===state.symbol?'active':''} ${w.symbol===justWatched?'card-in':''}" onclick="if(!window._wDrag)setSymbol('${w.symbol.replace(/'/g,"\\'")}','${(w.name||w.symbol).replace(/'/g,"\\'")}')">
             <span class="watch-drag-handle" aria-hidden="true">⠿</span>
             <button class="watch-remove" onclick="removeWatch(event,'${w.symbol.replace(/'/g,"\\'")}')" aria-label="ウォッチリストから削除">×</button>
             <div class="watch-name" title="${w.name}">${w.name}</div>
@@ -3217,6 +3217,49 @@ function setupWatchScroll(prevLeft, symbolChanged){
     e.preventDefault();
     g.scrollLeft += dy;
   }, {passive:false});
+  // マウスでドラッグすると横スクロール（並べ替えの「⠿」と削除の × は除く）。離したあとは少し滑って止まる
+  // 指の操作はブラウザの横スクロールのまま
+  let ds = null, glide = 0;
+  g.addEventListener('pointerdown', e => {
+    if(e.pointerType !== 'mouse' || e.button !== 0) return;
+    if(e.target.closest('.watch-drag-handle, .watch-remove')) return;
+    cancelAnimationFrame(glide);
+    ds = {id:e.pointerId, x:e.clientX, left:g.scrollLeft, moved:false, lastX:e.clientX, lastT:performance.now(), v:0};
+  });
+  g.addEventListener('pointermove', e => {
+    if(!ds || e.pointerId !== ds.id) return;
+    const dx = e.clientX - ds.x;
+    if(!ds.moved){
+      if(Math.abs(dx) < 5) return; // 少し動いただけならクリックのまま
+      ds.moved = true;
+      window._wDrag = true;
+      g.setPointerCapture(e.pointerId);
+      g.classList.add('drag-scrolling');
+    }
+    g.scrollLeft = ds.left - dx;
+    const now = performance.now();
+    if(now > ds.lastT) ds.v = (ds.lastX - e.clientX) / (now - ds.lastT); // 1ミリ秒あたりの速さ
+    ds.lastX = e.clientX; ds.lastT = now;
+  });
+  const endDrag = e => {
+    if(!ds || e.pointerId !== ds.id) return;
+    const {moved, lastT} = ds;
+    let v = performance.now() - lastT > 80 ? 0 : ds.v * 16; // 止めてから離したら滑らせない
+    ds = null;
+    g.classList.remove('drag-scrolling');
+    if(!moved) return;
+    setTimeout(() => { window._wDrag = false; }, 0); // 離した直後のクリックでカードが開かないように
+    if(prefersReducedMotion()) return;
+    const step = () => {
+      if(Math.abs(v) < 0.5) return;
+      g.scrollLeft += v;
+      v *= 0.88;
+      glide = requestAnimationFrame(step);
+    };
+    glide = requestAnimationFrame(step);
+  };
+  g.addEventListener('pointerup', endDrag);
+  g.addEventListener('pointercancel', endDrag);
   updateWatchEdges();
 }
 addEventListener('resize', updateWatchEdges);
@@ -3581,46 +3624,9 @@ function setupWatchlistDrag(){
   const grid = document.querySelector('.watch-grid');
   if(!grid) return;
   const getCards = () => [...grid.querySelectorAll('.watch-card')];
-
-  // --- Desktop: HTML5 drag (card全体) ---
-  let srcIdx = null;
   window._wDrag = false;
 
-  grid.addEventListener('dragstart', e => {
-    if(e.target.closest('.watch-remove')) return;
-    const card = e.target.closest('.watch-card');
-    if(!card) return;
-    srcIdx = getCards().indexOf(card);
-    card.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    window._wDrag = true;
-  });
-  grid.addEventListener('dragend', () => {
-    getCards().forEach(c => c.classList.remove('dragging','drag-over'));
-    srcIdx = null;
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{ window._wDrag = false; }));
-  });
-  grid.addEventListener('dragover', e => {
-    e.preventDefault();
-    const card = e.target.closest('.watch-card');
-    if(!card || srcIdx===null) return;
-    const idx = getCards().indexOf(card);
-    getCards().forEach(c=>c.classList.remove('drag-over'));
-    if(idx!==srcIdx) card.classList.add('drag-over');
-  });
-  grid.addEventListener('drop', e => {
-    e.preventDefault();
-    const card = e.target.closest('.watch-card');
-    if(!card || srcIdx===null) return;
-    const dstIdx = getCards().indexOf(card);
-    if(srcIdx!==dstIdx){
-      const [moved] = watchlist.splice(srcIdx, 1);
-      watchlist.splice(dstIdx, 0, moved);
-      saveWatchlist(); renderWatchlist();
-    }
-  });
-
-  // --- Touch/pointer drag: ハンドル起点 ---
+  // --- 並べ替え：左隅の「⠿」をつかんだときだけ（マウス・指とも。ほかの場所のドラッグは横スクロール） ---
   let ptSrcIdx = null;
   let ptGhost = null;
   let ptOffX = 0, ptOffY = 0;
