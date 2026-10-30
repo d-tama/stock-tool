@@ -1166,7 +1166,35 @@
   .opt{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 10px; border-radius:8px; font-size:13px;}
   .opt.col-opt{flex-direction:column; align-items:stretch; gap:7px;}
   .opt .hint{display:block; font-size:11px; color:var(--ink-soft);}
-  .opt.disabled{opacity:.45;}
+  /* 使えない項目でも説明（?）は読めるよう、薄くするのは名前・補足・スイッチだけ */
+  .opt.disabled :is(.opt-txt, .hint, .toggle){opacity:.45;}
+  .opt-name{display:inline-flex; align-items:center; gap:6px;}
+  .opt .hint.opt-name{display:inline-flex;}
+  .opt-help{position:relative; display:inline-grid; place-items:center; width:16px; height:16px; flex-shrink:0; padding:0;
+    border:1px solid color-mix(in srgb, var(--ink-soft) 70%, transparent); border-radius:50%; background:transparent; color:var(--ink-soft);
+    font:600 10px/1 'JetBrains Mono', monospace; cursor:default;
+    transition:color 180ms var(--ease-std), border-color 180ms var(--ease-std), background-color 180ms var(--ease-std);}
+  .opt-help::before{content:''; position:absolute; inset:-8px;} /* 指で押しやすいよう当たり判定を 32px に */
+  .opt-help:hover, .opt-help[aria-expanded="true"]{color:var(--ink); border-color:var(--ink);}
+  .opt-help[aria-expanded="true"]{background:color-mix(in srgb, var(--ink) 12%, transparent);}
+  .opt-help:focus-visible{outline:2px solid var(--ink); outline-offset:2px;}
+  /* 行の下に開く説明：高さは 0fr→1fr で。入りは ease-out、閉じは半分の尺で ease-in */
+  .opt-desc{display:grid; grid-template-rows:0fr; opacity:0; margin:0 10px;
+    transition:grid-template-rows 120ms var(--ease-in), opacity 90ms var(--ease-in);}
+  .opt-desc > div{min-height:0; overflow:hidden;}
+  .opt-desc p{margin:0 0 8px; padding:8px 10px; border-radius:8px; font-size:11.5px; line-height:1.7; color:var(--ink-soft);
+    background:color-mix(in srgb, var(--ink) 6%, transparent);}
+  .opt-desc.open{grid-template-rows:1fr; opacity:1;
+    transition:grid-template-rows 240ms var(--ease-out), opacity 180ms var(--ease-out);}
+  .opt.col-opt .opt-desc{margin:0;}
+  .opt.col-opt .opt-desc p{margin:0;}
+  /* PC のホバー／フォーカスで出す吹き出し（「?」側から 180ms、消すのは 90ms） */
+  .opt-tip{position:fixed; z-index:60; padding:9px 11px; border-radius:6px; background:var(--ink); color:var(--paper);
+    font-size:12px; line-height:1.65; pointer-events:none; box-shadow:0 6px 18px rgba(0,0,0,.22);
+    opacity:0; visibility:hidden; transform:scale(.96);
+    transition:opacity 90ms var(--ease-in), transform 90ms var(--ease-in), visibility 0s linear 90ms;}
+  .opt-tip.show{opacity:1; visibility:visible; transform:none;
+    transition:opacity 180ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s;}
   .opt-sep{height:1px; background:var(--line); opacity:.6; margin:4px 6px;}
   .chips{display:flex; flex-wrap:wrap; gap:5px;}
   .chips .pill{padding:4px 10px; font-size:11.5px;}
@@ -1660,16 +1688,25 @@ function toggleSeries(key){
   document.querySelectorAll(`.leg[data-series="${key}"]`).forEach(el=>el.classList.toggle('off', !state.seriesVisible[key]));
 }
 
+// 移動平均線の日数は次に開いたときも同じにする
+try{
+  const saved = JSON.parse(localStorage.getItem('maDays') || 'null');
+  if(Array.isArray(saved) && saved.length === 3 && saved.every(d => Number.isInteger(d) && d > 0)) state.maDays = saved;
+}catch(e){}
+function saveMaDays(){ try{ localStorage.setItem('maDays', JSON.stringify(state.maDays)); }catch(e){} }
+
 function setMaPreset(days){
   state.maDays = [...days];
-  render();
+  saveMaDays();
+  renderControls(); render();
 }
 
 function setMaDays(idx, val){
   const d = Math.max(1, Math.min(parseInt(val)||state.maDays[idx], fullCloses.length));
   if(d === state.maDays[idx]) return;
   state.maDays[idx] = d;
-  render();
+  saveMaDays();
+  renderControls(); render();
 }
 
 // ---------- math helpers ----------
@@ -3413,7 +3450,7 @@ document.addEventListener('keydown', e => {
 function closeMaSheet(){
   if(!document.getElementById('maSheetPanel').classList.contains('open')) return;
   hideSheet('maSheetOverlay', 'maSheetPanel');
-  if(_maSheetIdx !== null && state.maDays[_maSheetIdx] !== _maSheetOrigVal) render();
+  if(_maSheetIdx !== null && state.maDays[_maSheetIdx] !== _maSheetOrigVal){ saveMaDays(); renderControls(); render(); }
   _maSheetIdx = null; _maSheetOrigVal = null;
 }
 
@@ -3964,6 +4001,62 @@ async function loadCompareChart(){
 
 // ---------- チャートのツールバー（期間ボタン＋表示メニュー） ----------
 let _viewMenuOpen = false;
+// 表示メニューの各項目の説明。PC はホバー／フォーカスで吹き出し、「?」を押すと行の下に開く（スマホも同じ文）
+const OPT_HELP = {
+  candle: ['ローソク足', '1本で「始値・高値・安値・終値」を表します。太い部分の色で、その期間に上がったか下がったかが一目で分かります。OFFにすると終値を結んだ折れ線になります。'],
+  log:    ['対数目盛', '縦軸を「値段の差」ではなく「何%動いたか」で目盛ります。100→200円と1,000→2,000円が同じ高さに見えるので、何年分もの長い期間の伸び方を比べやすくなります。'],
+  proj:   ['予測シナリオ', '過去の値動きの大きさから、この先の値段が収まりやすい範囲を帯で表示します。上がる・下がるの予想ではなく、統計的な目安です。日足（期間1か月〜1年）のときだけ使えます。'],
+  ma:     ['移動平均線の日数', '移動平均線は、過去○日の終値の平均を結んだ線です。3つの数字は短期・中期・長期の日数。\n25/75/200：日本でよく使われる標準。数か月〜年単位の流れを見る向き。\n20/50/200：米国株でよく使われる組み合わせ。\n5/25/75：日数が短く、数日〜数週間の短期売買向き。'],
+  bars:   ['表示する本数', 'チャートに何本分（何日・何週分など）を出すかを自分で決めます。上の期間ボタン（1か月・1年など）の代わりに使います。'],
+  updown: ['値上がりを赤で表示', '日本の証券アプリと同じく、値上がりを赤・値下がりを緑で表します。OFFにすると海外式（値上がりが緑・値下がりが赤）になります。'],
+};
+const _optHelpOpen = new Set();
+const optName = k => `<span class="opt-name"><span class="opt-txt">${OPT_HELP[k][0]}</span><button type="button" class="opt-help" data-help="${k}" aria-expanded="${_optHelpOpen.has(k)}" aria-controls="optd-${k}" aria-label="${OPT_HELP[k][0]}の説明" onclick="toggleOptHelp('${k}')">?</button></span>`;
+const optDesc = k => `<div class="opt-desc${_optHelpOpen.has(k)?' open':''}" id="optd-${k}"><div><p>${OPT_HELP[k][1].replace(/\n/g,'<br>')}</p></div></div>`;
+function toggleOptHelp(k){
+  const open = !_optHelpOpen.has(k);
+  open ? _optHelpOpen.add(k) : _optHelpOpen.delete(k);
+  document.getElementById('optd-' + k)?.classList.toggle('open', open);
+  chartToolbar.querySelector(`.opt-help[data-help="${k}"]`)?.setAttribute('aria-expanded', open);
+  hideOptTip();
+}
+// 吹き出しはポップオーバー（スクロール領域）の外に置かないと切れるので body 直下に1つだけ持つ
+let _optTipEl = null;
+function showOptTip(btn){
+  const k = btn.dataset.help;
+  if(_optHelpOpen.has(k)) return; // 行の下に開いているときは重ねて出さない
+  if(!_optTipEl){
+    _optTipEl = document.createElement('div');
+    _optTipEl.className = 'opt-tip'; _optTipEl.setAttribute('role', 'tooltip'); _optTipEl.id = 'optTip';
+    document.body.appendChild(_optTipEl);
+  }
+  _optTipEl.innerHTML = OPT_HELP[k][1].replace(/\n/g, '<br>');
+  btn.setAttribute('aria-describedby', 'optTip');
+  // 「?」の下に、画面からはみ出さないよう左右と上下を寄せる
+  const r = btn.getBoundingClientRect(), vw = innerWidth, vh = innerHeight;
+  const w = Math.min(260, vw - 28);
+  _optTipEl.style.width = w + 'px';
+  const left = Math.max(14, Math.min(r.left + r.width/2 - w/2, vw - w - 14));
+  const h = _optTipEl.offsetHeight;
+  const below = r.bottom + 8 + h <= vh - 8;
+  _optTipEl.style.left = left + 'px';
+  _optTipEl.style.top = (below ? r.bottom + 8 : r.top - 8 - h) + 'px';
+  _optTipEl.style.transformOrigin = `${r.left + r.width/2 - left}px ${below ? 'top' : 'bottom'}`;
+  _optTipEl.classList.add('show');
+}
+function hideOptTip(){
+  _optTipEl?.classList.remove('show');
+  document.querySelectorAll('.opt-help[aria-describedby]').forEach(b => b.removeAttribute('aria-describedby'));
+}
+const _canHover = matchMedia('(hover: hover)');
+document.addEventListener('pointerover', e => {
+  const b = e.target.closest?.('.opt-help');
+  if(b && e.pointerType === 'mouse' && _canHover.matches) showOptTip(b);
+});
+document.addEventListener('pointerout', e => { if(e.target.closest?.('.opt-help') && !e.relatedTarget?.closest?.('.opt-help')) hideOptTip(); });
+document.addEventListener('focusin', e => { const b = e.target.closest?.('.opt-help'); if(b && b.matches(':focus-visible')) showOptTip(b); });
+document.addEventListener('focusout', e => { if(e.target.closest?.('.opt-help')) hideOptTip(); });
+document.addEventListener('scroll', hideOptTip, true);
 function renderControls(){
   const IVS = [['auto','自動'],['1m','1分'],['5m','5分'],['15m','15分'],['30m','30分'],['60m','1時間'],['1d','日'],['1wk','週'],['1mo','月']];
   const ivNow = state.ivAuto ? 'auto' : state.interval;
@@ -3971,6 +4064,7 @@ function renderControls(){
   const ma = JSON.stringify(state.maDays);
   const isDaily = state.interval === '1d';
   const N = fullCloses.length;
+  hideOptTip(); // 作り直しで「?」が消えると pointerout が来ないため
   chartToolbar.innerHTML = `
     <div class="seg" id="periodSeg" role="tablist" aria-label="表示期間">
       <span class="thumb${state.periodKey ? '' : ' none'}" id="segThumb"></span>
@@ -3982,9 +4076,12 @@ function renderControls(){
         表示
       </button>
       <div class="popover${_viewMenuOpen?' open':''}" id="viewPop" role="menu" onclick="event.stopPropagation()">
-        <div class="opt"><span>ローソク足</span>${sw(state.chartType==='candlestick', `setChartType('${state.chartType==='candlestick'?'line':'candlestick'}')`, 'ローソク足')}</div>
-        <div class="opt"><span>対数目盛<span class="hint">長期の伸び率を比べやすい</span></span>${sw(state.yScale==='log', `setYScale('${state.yScale==='log'?'linear':'log'}')`, '対数目盛')}</div>
-        <div class="opt${isDaily?'':' disabled'}"><span>予測シナリオ<span class="hint">${isDaily?'過去の値動きから統計的な幅を表示':'日足（1か月〜1年）のときだけ使えます'}</span></span>${sw(state.showProjection, `setShowProjection(${!state.showProjection})`, '予測シナリオ', !isDaily)}</div>
+        <div class="opt"><span>${optName('candle')}</span>${sw(state.chartType==='candlestick', `setChartType('${state.chartType==='candlestick'?'line':'candlestick'}')`, 'ローソク足')}</div>
+        ${optDesc('candle')}
+        <div class="opt"><span>${optName('log')}<span class="hint">長期の伸び率を比べやすい</span></span>${sw(state.yScale==='log', `setYScale('${state.yScale==='log'?'linear':'log'}')`, '対数目盛')}</div>
+        ${optDesc('log')}
+        <div class="opt${isDaily?'':' disabled'}"><span>${optName('proj')}<span class="hint">${isDaily?'過去の値動きから統計的な幅を表示':'日足（1か月〜1年）のときだけ使えます'}</span></span>${sw(state.showProjection, `setShowProjection(${!state.showProjection})`, '予測シナリオ', !isDaily)}</div>
+        ${optDesc('proj')}
         ${isDaily && state.showProjection ? `
         <div class="opt col-opt"><span class="hint">予測期間</span><div class="chips">
           ${projDayOptions.map(o=>`<button class="pill ${o.days===state.projDays?'active':''}" onclick="setProjDays(${o.days})">${o.label}</button>`).join('')}
@@ -3994,16 +4091,17 @@ function renderControls(){
           ${volLookbackOptions().map(o=>`<button class="pill ${o.days===state.volLookback?'active':''}" onclick="setVolLookback(${o.days})">${o.label}</button>`).join('')}
         </div></div>` : ''}
         <div class="opt-sep"></div>
-        <div class="opt col-opt"><span class="hint">移動平均線の日数</span><div class="chips">
+        <div class="opt col-opt"><span class="hint">${optName('ma')}</span>${optDesc('ma')}<div class="chips">
           <button class="pill ${ma==='[25,75,200]'?'active':''}" onclick="setMaPreset([25,75,200])">25/75/200</button>
           <button class="pill ${ma==='[20,50,200]'?'active':''}" onclick="setMaPreset([20,50,200])">20/50/200</button>
           <button class="pill ${ma==='[5,25,75]'?'active':''}" onclick="setMaPreset([5,25,75])">5/25/75</button>
         </div></div>
-        <div class="opt col-opt"><span class="hint">表示する本数</span><div class="chips">
+        <div class="opt col-opt"><span class="hint">${optName('bars')}</span>${optDesc('bars')}<div class="chips">
           <button class="pill${state.periodKey?'':' active'}" onclick="openNumSheet('setPeriod')">${state.periodKey ? '本数を指定' : `任意 ${state.period}${barUnit()==='本'?'本':barUnit()}`}</button>
         </div></div>
         <div class="opt-sep"></div>
-        <div class="opt"><span>値上がりを赤で表示<span class="hint">日本の証券アプリと同じ色</span></span>${sw(document.documentElement.dataset.updown==='jp', 'toggleUpDown()', '値上がりを赤で表示')}</div>
+        <div class="opt"><span>${optName('updown')}<span class="hint">日本の証券アプリと同じ色</span></span>${sw(document.documentElement.dataset.updown==='jp', 'toggleUpDown()', '値上がりを赤で表示')}</div>
+        ${optDesc('updown')}
       </div>
     </div>
     <div class="iv-row" role="group" aria-label="足（ローソク1本の長さ）">
@@ -4046,6 +4144,7 @@ function toggleViewMenu(ev){
 function closeViewMenu(){
   if(!_viewMenuOpen) return;
   _viewMenuOpen = false;
+  hideOptTip();
   document.getElementById('viewPop')?.classList.remove('open');
   document.getElementById('viewBtn')?.setAttribute('aria-expanded', false);
 }
