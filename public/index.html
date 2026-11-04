@@ -1224,14 +1224,15 @@
   /* 判定の根拠（行をタップすると説明が開く） */
   .sig{border-top:1px solid color-mix(in srgb, var(--line) 70%, transparent);}
   .sig:first-of-type{border-top:none;}
-  .sig summary{list-style:none; display:grid; grid-template-columns:minmax(0,1fr) auto auto 14px; gap:12px; align-items:center; padding:11px 2px; cursor:pointer;}
+  /* 広い画面で名前と値が左右に離れすぎないよう、行の中身は 560px までに収める（狭い画面はこれまでどおり） */
+  .sig summary{list-style:none; display:grid; grid-template-columns:minmax(0,1fr) auto auto 14px; gap:12px; align-items:center; padding:11px 2px; cursor:pointer; max-width:560px;}
   .sig summary::-webkit-details-marker{display:none;}
   .sig .nm{font-size:13.5px;}
   .sig .val{font-family:'JetBrains Mono', monospace; font-weight:700; font-size:15px; text-align:right; font-variant-numeric:tabular-nums;}
   .sig .tag{margin-top:0; white-space:nowrap;}
   .sig .chev{opacity:.5; transition:transform 260ms var(--ease-move);}
   .sig[open] .chev{transform:rotate(180deg);}
-  .sig .body{font-size:12.5px; color:var(--ink-soft); line-height:1.8; padding:0 2px 12px;}
+  .sig .body{font-size:12.5px; color:var(--ink-soft); line-height:1.8; padding:0 2px 12px; max-width:560px;}
   .sig .body p{margin:0 0 4px;}
   .sig .body .sub{font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--ink);}
 
@@ -4175,6 +4176,63 @@ function closePicker(){
   clearTimeout(_pickTimer); _pickSeq++;
   if(_pickReturnFocus && _pickReturnFocus.focus) _pickReturnFocus.focus();
 }
+// 下から出るシート（スマホ幅）：上部をつかんで下へ引くと閉じる。一覧は一番上までスクロールしているときだけ引ける
+function setupPickerSwipe(panel, scrim, closeFn){
+  const mobile = matchMedia('(max-width:640px)');
+  let sy = null, sx = 0, dy = 0, t0 = 0, dragging = false, fromList = false, pid = null;
+  const begin = (x, y, target) => {
+    if(!mobile.matches || !panel.classList.contains('open')) return false;
+    const list = target.closest('.list');
+    if(list && list.scrollTop > 0) return false;
+    fromList = !!list; sy = y; sx = x; dy = 0; t0 = performance.now(); dragging = false;
+    return true;
+  };
+  const move = (x, y) => {
+    if(sy === null) return false;
+    const d = y - sy;
+    if(!dragging){
+      if(Math.abs(d) < 8 && Math.abs(x - sx) < 8) return false;
+      if(d <= 0 || Math.abs(x - sx) > d){ sy = null; return false; } // 上向き・横向きはスクロールに任せる
+      dragging = true; panel.style.transition = 'none'; scrim.style.transition = 'none';
+    }
+    dy = Math.max(0, d);
+    panel.style.transform = `translateY(${dy}px)`;
+    scrim.style.opacity = String(Math.max(0, 1 - dy / panel.offsetHeight));
+    return true;
+  };
+  const end = () => {
+    if(sy === null) return;
+    const wasDragging = dragging, v = dy / Math.max(1, performance.now() - t0);
+    sy = null; dragging = false;
+    if(!wasDragging) return;
+    panel.style.transition = ''; scrim.style.transition = '';
+    if(dy > Math.min(120, panel.offsetHeight * .25) || v > .6){
+      // インラインを外すと同時に .open を外す → いまの位置から閉じる動きに入る
+      panel.style.transform = ''; scrim.style.opacity = '';
+      closeFn();
+    } else {
+      panel.style.transition = 'transform 300ms var(--ease-out)'; scrim.style.opacity = '';
+      panel.style.transform = '';
+      setTimeout(() => { panel.style.transition = ''; }, 300);
+    }
+  };
+  panel.addEventListener('touchstart', e => { begin(e.touches[0].clientX, e.touches[0].clientY, e.target); }, {passive:true});
+  panel.addEventListener('touchmove', e => { if(move(e.touches[0].clientX, e.touches[0].clientY)) e.preventDefault(); }, {passive:false});
+  panel.addEventListener('touchend', end, {passive:true});
+  panel.addEventListener('touchcancel', end, {passive:true});
+  // マウス（狭いウィンドウ）：上部のつまみ・見出しから。ボタンと入力欄は除く
+  panel.addEventListener('pointerdown', e => {
+    if(e.pointerType === 'touch' || e.button !== 0) return;
+    if(e.target.closest('.list, button, input') || !begin(e.clientX, e.clientY, e.target)) return;
+    pid = e.pointerId; panel.setPointerCapture(pid);
+  });
+  panel.addEventListener('pointermove', e => { if(e.pointerId === pid) move(e.clientX, e.clientY); });
+  const pend = e => { if(e.pointerId !== pid) return; pid = null; end(); };
+  panel.addEventListener('pointerup', pend);
+  panel.addEventListener('pointercancel', pend);
+}
+setupPickerSwipe(document.getElementById('picker'), document.getElementById('scrim'), closePicker);
+setupPickerSwipe(document.getElementById('watchModal'), document.getElementById('watchScrim'), closeWatchModal);
 function renderPickList(results){
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const row = it => `<button class="row" data-s="${esc(it.symbol)}" data-n="${esc(it.name||it.symbol)}"><span class="n">${esc(it.name||it.symbol)}</span>${it.symbol===state.symbol?'<span class="cur">表示中</span>':''}<span class="s">${esc(it.symbol)}${it.exchange?' / '+esc(it.exchange):''}</span></button>`;
