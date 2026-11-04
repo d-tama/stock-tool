@@ -1046,7 +1046,7 @@
     .wm-price{grid-column:3; grid-row:1;}
     .wm-chg{grid-column:3; grid-row:2;}
   }
-  /* 一覧の並べ替え（登録順のときだけ左端に「⠿」） */
+  /* 一覧の並べ替え（自分の順のときだけ左端に「⠿」） */
   .wm-handle{display:flex; align-items:center; justify-content:center; align-self:stretch; margin:-10px 0 -10px -6px;
     color:var(--ink-soft); opacity:.4; font-size:14px; touch-action:none; user-select:none; cursor:default;
     transition:opacity 180ms var(--ease-std);}
@@ -3342,7 +3342,7 @@ const watchStats = {};   // 銘柄ごとの {price, chg, verdict, spark}（カ�
 let watchModalOpen = false, _watchModalReturn = null;
 let watchSort = 'order';
 try{ watchSort = localStorage.getItem('watchSort') || 'order'; }catch(e){}
-const WATCH_SORTS = [['order','登録順'], ['up','値上がり順'], ['down','値下がり順'], ['verdict','判定順']];
+const WATCH_SORTS = [['order','自分の順'], ['up','値上がり順'], ['down','値下がり順'], ['verdict','判定順']];
 function openWatchModal(){
   _watchModalReturn = document.activeElement;
   watchModalOpen = true;
@@ -3383,7 +3383,7 @@ function renderWatchModal(){
   else if(watchSort === 'verdict') rows.sort((a, b) =>
     (VRANK[watchStats[a.symbol]?.verdict?.cls] ?? 3) - (VRANK[watchStats[b.symbol]?.verdict?.cls] ?? 3) || a.i - b.i);
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  // 登録順のときだけ「⠿」で並べ替えられる（ほかの並びは値で決まるため）
+  // 自分の順（カードの列と同じ並び）のときだけ「⠿」で並べ替えられる（ほかの並びは値で決まるため）
   const reorderable = watchSort === 'order' && watchlist.length > 1;
   list.innerHTML = rows.map(w => {
     const st = watchStats[w.symbol] || {};
