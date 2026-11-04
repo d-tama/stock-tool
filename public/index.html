@@ -1046,6 +1046,39 @@
     .wm-price{grid-column:3; grid-row:1;}
     .wm-chg{grid-column:3; grid-row:2;}
   }
+  /* 一覧の並べ替え（登録順のときだけ左端に「⠿」） */
+  .wm-handle{display:flex; align-items:center; justify-content:center; align-self:stretch; margin:-10px 0 -10px -6px;
+    color:var(--ink-soft); opacity:.4; font-size:14px; touch-action:none; user-select:none; cursor:default;
+    transition:opacity 180ms var(--ease-std);}
+  .wm-row:hover .wm-handle, .wm-handle:hover{opacity:.85;}
+  /* 指定は行そのものに付ける（ドラッグ中の複製は一覧の外に置くため） */
+  .wm-row.rh{grid-template-columns:22px minmax(0,1fr) 120px 110px 76px 64px;}
+  @media(max-width:640px){
+    .wm-row.rh{grid-template-columns:22px minmax(0,1fr) 56px auto;}
+    .wm-row.rh .wm-handle{grid-column:1; grid-row:1 / span 2; margin:-9px 0 -9px -4px;}
+    .wm-row.rh .wm-name{grid-column:2;}
+    .wm-row.rh .watch-verdict{grid-column:2;}
+    .wm-row.rh .wm-spark{grid-column:3;}
+    .wm-row.rh .wm-price, .wm-row.rh .wm-chg{grid-column:4;}
+  }
+  /* ドラッグ中：つかんだ複製は少し大きく浮かせ、元の場所は点線の空きにする */
+  .reorder-ghost{z-index:9999; pointer-events:none; box-sizing:border-box;
+    transition:scale 180ms var(--ease-out), rotate 180ms var(--ease-out), box-shadow 180ms var(--ease-out);}
+  .reorder-ghost.lifted{scale:1.04; box-shadow:0 16px 36px rgba(0,0,0,.38);}
+  .watch-card.reorder-ghost.lifted{rotate:-1.5deg;}
+  .wm-row.reorder-ghost{background:var(--panel-bg); border:1px solid var(--line);}
+  .reorder-slot{background:transparent !important; border-color:transparent !important; box-shadow:none !important;
+    outline:1.5px dashed color-mix(in srgb, var(--ink-soft) 60%, transparent); outline-offset:-2px;}
+  .reorder-slot > *{visibility:hidden;}
+  /* 置いた場所を一瞬光らせる */
+  @keyframes reorderLanded{
+    from{outline:2px solid var(--indigo); outline-offset:-2px; background-color:color-mix(in srgb, var(--indigo) 16%, transparent);}
+    to{outline:2px solid transparent; outline-offset:-2px;}
+  }
+  .reorder-landed{animation:reorderLanded 800ms var(--ease-out);}
+  /* 並べ替えボタンで動いている行：少し浮かせ、上へ行く行を手前に */
+  .wm-row.flip-moving{position:relative; z-index:1; background:var(--panel-bg); box-shadow:0 6px 18px rgba(0,0,0,.25);}
+  .wm-row.flip-up{z-index:2;}
   /* カードの下段：前日比と、その銘柄の総合判定 */
   .watch-foot{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:2px;}
   .watch-foot .watch-chg{margin-top:0;}
@@ -1222,17 +1255,18 @@
   .basis-note{font-size:11px; color:var(--ink-soft); margin-top:10px;}
 
   /* 判定の根拠（行をタップすると説明が開く） */
-  .sig{border-top:1px solid color-mix(in srgb, var(--line) 70%, transparent);}
-  .sig:first-of-type{border-top:none;}
-  /* 広い画面で名前と値が左右に離れすぎないよう、行の中身は 560px までに収める（狭い画面はこれまでどおり） */
-  .sig summary{list-style:none; display:grid; grid-template-columns:minmax(0,1fr) auto auto 14px; gap:12px; align-items:center; padding:11px 2px; cursor:pointer; max-width:560px;}
+  /* 広い画面では2〜3列に並べて横幅を使う（1列 340px 以上。狭い画面は1列のまま）。
+     区切り線は各行の上に引き、1段目の線だけ -1px ずらして枠の外へ隠す */
+  .sig-list{display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 340px), 1fr)); column-gap:36px; align-items:start; overflow:hidden;}
+  .sig{border-top:1px solid color-mix(in srgb, var(--line) 70%, transparent); margin-top:-1px;}
+  .sig summary{list-style:none; display:grid; grid-template-columns:minmax(0,1fr) auto auto 14px; gap:12px; align-items:center; padding:11px 2px; cursor:pointer;}
   .sig summary::-webkit-details-marker{display:none;}
   .sig .nm{font-size:13.5px;}
   .sig .val{font-family:'JetBrains Mono', monospace; font-weight:700; font-size:15px; text-align:right; font-variant-numeric:tabular-nums;}
   .sig .tag{margin-top:0; white-space:nowrap;}
   .sig .chev{opacity:.5; transition:transform 260ms var(--ease-move);}
   .sig[open] .chev{transform:rotate(180deg);}
-  .sig .body{font-size:12.5px; color:var(--ink-soft); line-height:1.8; padding:0 2px 12px; max-width:560px;}
+  .sig .body{font-size:12.5px; color:var(--ink-soft); line-height:1.8; padding:0 2px 12px;}
   .sig .body p{margin:0 0 4px;}
   .sig .body .sub{font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--ink);}
 
@@ -3184,6 +3218,7 @@ function removeWatch(ev, symbol){
 }
 
 function renderWatchlist(){
+  if(watchlistBox.querySelector('.reorder-slot')) return; // 並べ替えのドラッグ中は描き直さない（離したあとに描き直す）
   if(!watchlist.length){
     watchlistBox.innerHTML = `<div class="watch-head">ウォッチリスト</div>
       <p class="watch-empty-hint">銘柄名の横の「☆ ウォッチ」で、よく見る銘柄をここに並べられます</p>`;
@@ -3202,7 +3237,7 @@ function renderWatchlist(){
       <button class="watch-nav next" aria-label="次の銘柄へ" onclick="scrollWatch(1)"><svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6 4.5 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div class="watch-grid">
         ${watchlist.map(w=>`
-          <div class="watch-card ${w.symbol===state.symbol?'active':''} ${w.symbol===justWatched?'card-in':''}" onclick="if(!window._wDrag)setSymbol('${w.symbol.replace(/'/g,"\\'")}','${(w.name||w.symbol).replace(/'/g,"\\'")}')">
+          <div class="watch-card ${w.symbol===state.symbol?'active':''} ${w.symbol===justWatched?'card-in':''}" data-s="${w.symbol.replace(/"/g,'&quot;')}" onclick="if(!window._wDrag)setSymbol('${w.symbol.replace(/'/g,"\\'")}','${(w.name||w.symbol).replace(/'/g,"\\'")}')">
             <span class="watch-drag-handle" aria-hidden="true">⠿</span>
             <button class="watch-remove" onclick="removeWatch(event,'${w.symbol.replace(/'/g,"\\'")}')" aria-label="ウォッチリストから削除">×</button>
             <div class="watch-name" title="${w.name}">${w.name}</div>
@@ -3330,7 +3365,9 @@ function setWatchSort(k){
 }
 function renderWatchModal(){
   const list = document.getElementById('wmList');
-  if(!list) return;
+  if(!list || list.querySelector('.reorder-slot')) return; // 並べ替えのドラッグ中は描き直さない
+  // 描き直す前の各行の位置（並びが変わった行を、元の位置から新しい位置へ動かすため）
+  const before = new Map([...list.querySelectorAll('.wm-row')].map(r => [r.dataset.s, r.getBoundingClientRect().top]));
   document.getElementById('wmCount').textContent = watchlist.length;
   document.getElementById('wmSort').innerHTML = WATCH_SORTS.map(([k, l]) =>
     `<button class="pill ${k===watchSort?'active':''}" onclick="setWatchSort('${k}')">${l}</button>`).join('');
@@ -3346,11 +3383,14 @@ function renderWatchModal(){
   else if(watchSort === 'verdict') rows.sort((a, b) =>
     (VRANK[watchStats[a.symbol]?.verdict?.cls] ?? 3) - (VRANK[watchStats[b.symbol]?.verdict?.cls] ?? 3) || a.i - b.i);
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  // 登録順のときだけ「⠿」で並べ替えられる（ほかの並びは値で決まるため）
+  const reorderable = watchSort === 'order' && watchlist.length > 1;
   list.innerHTML = rows.map(w => {
     const st = watchStats[w.symbol] || {};
     const chg = st.chg;
     const spark = st.spark && st.spark.length >= 2 ? sparklineInner('wmf-' + cssSafe(w.symbol), st.spark) : '';
-    return `<button class="wm-row ${w.symbol===state.symbol?'active':''}" data-s="${esc(w.symbol)}" data-n="${esc(w.name||w.symbol)}">
+    return `<button class="wm-row${reorderable?' rh':''} ${w.symbol===state.symbol?'active':''}" data-s="${esc(w.symbol)}" data-n="${esc(w.name||w.symbol)}">
+      ${reorderable ? '<span class="wm-handle" aria-hidden="true" title="ドラッグで並べ替え">⠿</span>' : ''}
       <span class="wm-name"><b>${esc(w.name||w.symbol)}</b><small>${esc(w.symbol)}</small></span>
       <svg class="wm-spark" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true">${spark}</svg>
       <span class="wm-price">${st.price != null ? fmtPrice(st.price) : '…'}</span>
@@ -3359,8 +3399,32 @@ function renderWatchModal(){
     </button>`;
   }).join('');
   list.querySelectorAll('.wm-row').forEach(b => b.onclick = () => {
+    if(window._wDrag) return;
     closeWatchModal();
     if(b.dataset.s !== state.symbol) setSymbol(b.dataset.s, b.dataset.n);
+  });
+  setupReorder(list, {item:'.wm-row', handle:'.wm-handle', axis:'y'});
+  flipRows(list, before);
+}
+// 並びが変わった行を、元の位置から新しい位置へ動かす（FLIP）。尺は距離の平方根に比例（200px で約 300ms）。
+// 動いている行は少し浮かせ、上へ行く行を手前に重ねて、入れ替わりが目で追えるようにする
+function flipRows(list, before){
+  if(list._noFlip){ list._noFlip = false; return; }
+  if(!before.size || prefersReducedMotion()) return;
+  list.querySelectorAll('.wm-row').forEach(r => {
+    const old = before.get(r.dataset.s);
+    if(old == null) return;
+    const d = old - r.getBoundingClientRect().top;
+    if(Math.abs(d) < 1) return;
+    const ms = Math.round(Math.min(560, Math.max(240, 21 * Math.sqrt(Math.abs(d)))));
+    r.style.transition = 'none';
+    r.style.transform = `translateY(${d}px)`;
+    r.classList.add('flip-moving');
+    if(d > 0) r.classList.add('flip-up');
+    r.offsetWidth;
+    r.style.transition = `transform ${ms}ms var(--ease-move), box-shadow ${ms}ms var(--ease-move)`;
+    r.style.transform = '';
+    setTimeout(() => { r.classList.remove('flip-moving', 'flip-up'); r.style.transition = ''; }, ms);
   });
 }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeWatchModal(); });
@@ -3661,74 +3725,106 @@ function setupMaDragInputs(){
 function setupWatchlistDrag(){
   const grid = document.querySelector('.watch-grid');
   if(!grid) return;
-  const getCards = () => [...grid.querySelectorAll('.watch-card')];
   window._wDrag = false;
-
-  // --- 並べ替え：左隅の「⠿」をつかんだときだけ（マウス・指とも。ほかの場所のドラッグは横スクロール） ---
-  let ptSrcIdx = null;
-  let ptGhost = null;
-  let ptOffX = 0, ptOffY = 0;
-
-  grid.addEventListener('pointerdown', e => {
-    if(!e.target.closest('.watch-drag-handle')) return;
-    const card = e.target.closest('.watch-card');
-    if(!card) return;
-    e.preventDefault();
-    grid.setPointerCapture(e.pointerId);
-    ptSrcIdx = getCards().indexOf(card);
-    card.classList.add('dragging');
+  // 並べ替え：左隅の「⠿」をつかんだときだけ（マウス・指とも。ほかの場所のドラッグは横スクロール）
+  setupReorder(grid, {item:'.watch-card', handle:'.watch-drag-handle', axis:'x'});
+}
+function moveWatch(from, to){
+  const [moved] = watchlist.splice(from, 1);
+  watchlist.splice(to, 0, moved);
+  saveWatchlist(); renderWatchlist();
+  if(watchModalOpen) renderWatchModal();
+}
+// ---- ドラッグで並べ替え（カードの列・一覧の行で共通） ----
+// つかむと複製（ghost）が指についてきて、ほかの項目がその場でよけて空き（点線の枠）ができる。
+// 離すと複製が空きへ滑り込み、置いた項目が一瞬光る。box はスクロールする入れ物、端に寄せると自動で送る
+function setupReorder(box, {item, handle, axis}){
+  if(!box || box._reorder) return;
+  box._reorder = true;
+  const X = axis === 'x';
+  let s = null;
+  const dur = () => prefersReducedMotion() ? 0 : 280; // 画面内の移動（ease-move）
+  const scrollPos = () => X ? box.scrollLeft : box.scrollTop;
+  box.addEventListener('pointerdown', e => {
+    if(e.button > 0 || !e.target.closest(handle)) return;
+    const el = e.target.closest(item);
+    if(!el) return;
+    e.preventDefault(); e.stopPropagation();
+    try{ box.setPointerCapture(e.pointerId); }catch(err){}
+    const items = [...box.querySelectorAll(item)];
+    const br = box.getBoundingClientRect(), sc = scrollPos();
+    // 各項目の位置は入れ物の中の座標で持つ（スクロールしても変わらない）
+    const pos = items.map(it => { const r = it.getBoundingClientRect(); return (X ? r.left - br.left : r.top - br.top) + sc; });
+    const size = items.map(it => X ? it.offsetWidth : it.offsetHeight);
+    const r = el.getBoundingClientRect();
+    const ghost = el.cloneNode(true);
+    ghost.classList.remove('reorder-landed');
+    ghost.classList.add('reorder-ghost');
+    Object.assign(ghost.style, {position:'fixed', left:r.left+'px', top:r.top+'px', width:r.width+'px', height:r.height+'px', margin:'0'});
+    document.body.appendChild(ghost);
+    requestAnimationFrame(() => ghost.classList.add('lifted'));
+    el.classList.add('reorder-slot');
+    items.forEach(it => { it.style.transition = `transform ${dur()}ms var(--ease-move)`; });
+    s = {el, items, pos, size, ghost, r, br, src:items.indexOf(el), to:items.indexOf(el), x0:e.clientX, y0:e.clientY, sc0:sc, px:e.clientX, py:e.clientY, pid:e.pointerId, raf:0};
     window._wDrag = true;
-    // ゴースト生成
-    const rect = card.getBoundingClientRect();
-    ptOffX = e.clientX - rect.left;
-    ptOffY = e.clientY - rect.top;
-    ptGhost = card.cloneNode(true);
-    Object.assign(ptGhost.style, {
-      position:'fixed', left: rect.left+'px', top: rect.top+'px',
-      width: rect.width+'px', height: rect.height+'px',
-      opacity:'0.85', pointerEvents:'none', zIndex:'9999',
-      transform:'scale(1.05) rotate(-1deg)',
-      boxShadow:'0 8px 28px rgba(0,0,0,0.28)',
-      transition:'none', borderRadius:'6px'
-    });
-    document.body.appendChild(ptGhost);
-  }, {passive:false});
-
-  grid.addEventListener('pointermove', e => {
-    if(ptSrcIdx===null || !ptGhost) return;
+    s.raf = requestAnimationFrame(tick);
+  });
+  box.addEventListener('pointermove', e => {
+    if(!s || e.pointerId !== s.pid) return;
     e.preventDefault();
-    ptGhost.style.left = (e.clientX - ptOffX) + 'px';
-    ptGhost.style.top  = (e.clientY - ptOffY) + 'px';
-    // ドロップ先ハイライト
-    ptGhost.style.visibility = 'hidden';
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    ptGhost.style.visibility = '';
-    const cards = getCards();
-    cards.forEach(c=>c.classList.remove('drag-over'));
-    const over = el?.closest('.watch-card');
-    if(over){ const i=cards.indexOf(over); if(i!==ptSrcIdx) over.classList.add('drag-over'); }
-  }, {passive:false});
-
-  const endTouch = e => {
-    if(ptSrcIdx===null) return;
-    const cards = getCards();
-    cards.forEach(c=>c.classList.remove('dragging','drag-over'));
-    if(ptGhost){ ptGhost.remove(); ptGhost=null; }
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const over = el?.closest('.watch-card');
-    if(over){
-      const dstIdx = cards.indexOf(over);
-      if(dstIdx!==ptSrcIdx && dstIdx!==-1){
-        const [moved] = watchlist.splice(ptSrcIdx, 1);
-        watchlist.splice(dstIdx, 0, moved);
-        saveWatchlist(); renderWatchlist();
-      }
+    s.px = e.clientX; s.py = e.clientY;
+  });
+  function tick(){
+    if(!s) return;
+    // 端に寄せたら自動で送る（端からの距離が近いほど速く）
+    const p = X ? s.px - s.br.left : s.py - s.br.top, len = X ? s.br.width : s.br.height, EDGE = 48;
+    if(p < EDGE) box[X ? 'scrollLeft' : 'scrollTop'] -= Math.ceil((EDGE - Math.max(0, p)) / EDGE * 14);
+    else if(p > len - EDGE) box[X ? 'scrollLeft' : 'scrollTop'] += Math.ceil((EDGE - Math.max(0, len - p)) / EDGE * 14);
+    // 複製は指に追従（カードの列は縦の揺れを抑え、一覧は縦だけ）
+    const dx = s.px - s.x0, dy = s.py - s.y0;
+    s.ghost.style.translate = X ? `${dx}px ${dy * .3}px` : `0 ${dy}px`;
+    // 複製の中心が、ほかのどの項目の中心より先にあるかで入る場所を決める
+    const center = s.pos[s.src] + s.size[s.src] / 2 + (X ? dx : dy) + (scrollPos() - s.sc0);
+    let to = 0;
+    s.items.forEach((it, i) => { if(i !== s.src && s.pos[i] + s.size[i] / 2 < center) to++; });
+    if(to !== s.to){
+      s.to = to;
+      s.items.forEach((it, i) => {
+        let d = 0;
+        if(i === s.src) d = s.pos[to] - s.pos[s.src];
+        else if(s.src < i && i <= to) d = s.pos[i - 1] - s.pos[i];
+        else if(to <= i && i < s.src) d = s.pos[i + 1] - s.pos[i];
+        it.style.transform = d ? (X ? `translateX(${d}px)` : `translateY(${d}px)`) : '';
+      });
     }
-    ptSrcIdx = null;
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{ window._wDrag = false; }));
+    s.raf = requestAnimationFrame(tick);
+  }
+  const finish = e => {
+    if(!s || e.pointerId !== s.pid) return;
+    const c = s; s = null;
+    cancelAnimationFrame(c.raf);
+    // 複製を空きの位置へ滑り込ませてから、本当に並べ替える（描き直しても位置は同じなので跳ばない）
+    const slot = c.el.getBoundingClientRect(), d = dur();
+    c.ghost.style.transition = `translate ${d}ms var(--ease-out), scale ${d}ms var(--ease-out), rotate ${d}ms var(--ease-out), box-shadow ${d}ms var(--ease-out)`;
+    c.ghost.classList.remove('lifted');
+    c.ghost.style.translate = `${slot.left - c.r.left}px ${slot.top - c.r.top}px`;
+    setTimeout(() => {
+      c.ghost.remove();
+      c.items.forEach(it => { it.style.transition = 'none'; it.style.transform = ''; });
+      c.el.classList.remove('reorder-slot');
+      const key = c.el.dataset.s;
+      if(c.to !== c.src){ box._noFlip = true; moveWatch(c.src, c.to); } // 動きは見せ終わっているので、描き直しの FLIP は省く
+      else c.items.forEach(it => { it.offsetWidth; it.style.transition = ''; });
+      document.querySelectorAll('.watch-card, .wm-row').forEach(n => {
+        if(n.dataset.s !== key) return;
+        n.classList.remove('reorder-landed'); n.offsetWidth; n.classList.add('reorder-landed');
+        setTimeout(() => n.classList.remove('reorder-landed'), 800);
+      });
+      requestAnimationFrame(() => requestAnimationFrame(() => { window._wDrag = false; }));
+    }, d);
   };
-  grid.addEventListener('pointerup', endTouch);
-  grid.addEventListener('pointercancel', endTouch);
+  box.addEventListener('pointerup', finish);
+  box.addEventListener('pointercancel', finish);
 }
 
 function renderSparklineSvg(id, closes){
@@ -4184,6 +4280,7 @@ function setupPickerSwipe(panel, scrim, closeFn){
     if(!mobile.matches || !panel.classList.contains('open')) return false;
     const list = target.closest('.list');
     if(list && list.scrollTop > 0) return false;
+    if(target.closest('.wm-handle')) return false; // 並べ替えのつまみは閉じる操作にしない
     fromList = !!list; sy = y; sx = x; dy = 0; t0 = performance.now(); dragging = false;
     return true;
   };
@@ -4904,6 +5001,7 @@ function render(){
   const indicatorsPanelHTML = `
     <div class="panel" id="sec-indicators">
       <div class="section-title">判定の根拠</div>
+      <div class="sig-list">
       ${sigRow('移動平均線', fmtPrice(lastPrice), maTag, maTagClass, [
         `<span class="sub">${state.maDays[0]}${amu} ${curMA25?fmtPrice(curMA25):'--'}／${state.maDays[1]}${amu} ${curMA75?fmtPrice(curMA75):'--'}／${state.maDays[2]}${amu} ${curMA200?fmtPrice(curMA200):'--'}</span>`, maSignal],
         '一定期間の価格の平均値を結んだ線。短期線が長期線を上抜く（ゴールデンクロス）と上昇トレンド入り、下抜く（デッドクロス）と下降トレンド入りのサインとされます。')}
@@ -4917,6 +5015,7 @@ function render(){
         '短期と長期の移動平均線の差から勢いの変化をとらえる指標。MACD線がシグナル線を上抜くと買いシグナル、下抜くと売りシグナルとされます。')}
       ${sigRow(`${state.maDays[2]}${amu}線との距離`, distMA200!==null ? (distMA200>=0?'+':'')+distMA200.toFixed(1)+'%' : '--', distTag, distTagClass, [distNote],
         '現在の価格が長期移動平均線からどれだけ離れているかを示す割合。長期的な上昇/下降トレンドからの位置や、行き過ぎの度合いを見る目安になります。')}
+      </div>
     </div>`;
 
   const chartPanelHTML = `
