@@ -115,6 +115,16 @@
   @keyframes flashDown{0%{background:color-mix(in srgb, var(--down) 28%, transparent);}100%{background:transparent;}}
   .flash-up{animation:flashUp .7s ease-out;}
   .flash-down{animation:flashDown .7s ease-out;}
+  /* 数字が回る（オドメーター）：桁ごとに2つ縦に積んで、半分だけ送る。上下の端はぼかして、窓から覗く感じに */
+  .odo{display:inline-block; overflow:hidden; height:1lh; vertical-align:top;
+    -webkit-mask-image:linear-gradient(transparent, #000 14%, #000 86%, transparent); mask-image:linear-gradient(transparent, #000 14%, #000 86%, transparent);}
+  /* 回っている間だけ、上がった桁は値上がりの色・下がった桁は値下がりの色（終わると普通の色に戻る） */
+  .odo-in{display:flex; flex-direction:column; animation:odoUp var(--spring-settle-ms, 625ms) var(--spring-settle, ease-out) both;}
+  .odo-in.odo-up{color:var(--up);}
+  .odo-in.odo-down{color:var(--down); animation-name:odoDown;}
+  .odo-in > span{display:block; height:1lh; text-align:center;}
+  @keyframes odoUp{from{transform:translateY(0);} to{transform:translateY(-50%);}}
+  @keyframes odoDown{from{transform:translateY(-50%);} to{transform:translateY(0);}}
   .live-dot{
     display:inline-block; width:7px; height:7px; border-radius:50%;
     background:var(--indigo); margin-right:5px; vertical-align:middle;
@@ -169,6 +179,8 @@
   .ctrl-row{
     display:flex; align-items:center; gap:7px; flex-wrap:wrap;
   }
+  /* 小見出しはほかの行のラベルと同じ段に（大きく太く浮いていた） */
+  .ctrl-row .ctrl-label{font-size:11px; letter-spacing:.2em; color:var(--ink-soft); margin-right:6px; white-space:nowrap;}
   @media(max-width:1023px){
     .ctrl-row{
       flex-wrap:nowrap; overflow-x:auto;
@@ -791,9 +803,19 @@
   /* スマホ用：チャート下部のスクラバー（時系列位置選択バー） */
   .chart-scrubber-wrap{ display:none; padding:4px 6px 8px; }
   .chart-scrubber-wrap.touch-scrubber{ display:flex; align-items:center; gap:6px; }
+  /* 太い金色のバーが4か所で目立っていたので、細い線と小さな玉に。触っている間だけ玉が少し大きく濃くなる */
   .chart-scrubber-wrap input[type="range"]{
-    flex:1; height:22px; accent-color:#C8A24A; cursor:pointer;
+    flex:1; height:24px; margin:0; background:transparent; cursor:default; -webkit-appearance:none; appearance:none;
   }
+  .chart-scrubber-wrap input[type="range"]::-webkit-slider-runnable-track{height:3px; border-radius:2px; background:color-mix(in srgb, var(--ink) 16%, transparent);}
+  .chart-scrubber-wrap input[type="range"]::-moz-range-track{height:3px; border-radius:2px; background:color-mix(in srgb, var(--ink) 16%, transparent);}
+  .chart-scrubber-wrap input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none; width:16px; height:16px; margin-top:-6.5px; border-radius:50%;
+    background:var(--panel-bg); border:2px solid var(--ink-soft); box-shadow:0 1px 4px rgba(0,0,0,.3);
+    transition:transform 180ms var(--ease-std), border-color 180ms var(--ease-std);}
+  .chart-scrubber-wrap input[type="range"]::-moz-range-thumb{width:12px; height:12px; border-radius:50%;
+    background:var(--panel-bg); border:2px solid var(--ink-soft); box-shadow:0 1px 4px rgba(0,0,0,.3);}
+  .chart-scrubber-wrap input[type="range"]:active::-webkit-slider-thumb{transform:scale(1.2); border-color:var(--ink);}
+  .chart-scrubber-wrap input[type="range"]:focus-visible{outline:2px solid var(--indigo); outline-offset:2px; border-radius:4px;}
   .chart-scrubber-label{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-soft); white-space:nowrap; }
 
   /* 凡例内 MA日数インライン入力 */
@@ -1183,9 +1205,13 @@
     transition:color 180ms var(--ease-std);}
   .seg button:hover{color:var(--ink);}
   .seg button.on{color:var(--paper); font-weight:700;}
-  .seg .thumb{position:absolute; z-index:0; top:3px; bottom:3px; left:0; width:0; border-radius:999px; background:var(--ink);
-    transition:transform 300ms var(--ease-move), width 300ms var(--ease-move);}
-  .seg .thumb.none{opacity:0;}
+  /* 選択の印は JS のばね（伸びるハイライト）で動かすので、CSS の transition は付けない */
+  .seg .thumb{position:absolute; z-index:0; top:3px; bottom:3px; left:0; width:0; border-radius:999px; background:var(--ink);}
+  .seg .thumb.none, .iv-row .thumb.none{opacity:0;}
+  .iv-row{position:relative;}
+  .iv-row .thumb{position:absolute; z-index:0; left:0; width:0; border-radius:14px; background:var(--ink); pointer-events:none;}
+  .iv-row .pill{position:relative; z-index:1;}
+  .iv-row .pill.active{background:transparent; border-color:transparent;}
   .view-wrap{position:relative; flex-shrink:0;}
   .view-btn{display:flex; align-items:center; gap:6px; border:1px solid var(--line); background:transparent; color:var(--ink);
     border-radius:999px; padding:6px 13px; font-size:12.5px; cursor:pointer; font-family:'Zen Kaku Gothic New', sans-serif;}
@@ -1238,6 +1264,15 @@
   .toggle[aria-checked="true"]{background:var(--indigo);}
   .toggle[aria-checked="true"]::after{transform:translateX(16px);}
   .toggle:disabled{cursor:default;}
+  /* 切り替えた瞬間：玉が進む向きへ伸びて（16→23px）、着いたら丸に戻る。下地の色も前の色から移る */
+  .toggle.sw-anim::after{animation:knobOff 320ms var(--ease-out);}
+  .toggle.sw-anim[aria-checked="true"]::after{animation-name:knobOn;}
+  .toggle.sw-anim{animation:trackOff 220ms var(--ease-std);}
+  .toggle.sw-anim[aria-checked="true"]{animation-name:trackOn;}
+  @keyframes knobOn{0%{transform:translateX(0); width:16px;} 40%{transform:translateX(4px); width:23px;} 100%{transform:translateX(16px); width:16px;}}
+  @keyframes knobOff{0%{transform:translateX(16px); width:16px;} 40%{transform:translateX(5px); width:23px;} 100%{transform:translateX(0); width:16px;}}
+  @keyframes trackOn{from{background:color-mix(in srgb, var(--ink) 20%, transparent);}}
+  @keyframes trackOff{from{background:var(--indigo);}}
   @media(max-width:640px){
     .seg button{padding:6px 2px; font-size:11.5px;}
     .view-btn{width:34px; height:34px; padding:0; justify-content:center; font-size:0; gap:0;}
@@ -1291,6 +1326,10 @@
     transition:color 180ms var(--ease-std), transform 300ms var(--ease-pop);}
   .tabbar button:active{transform:scale(.92); transition-duration:100ms;}
   .tabbar button.on{color:var(--ink); font-weight:700;}
+  .tabbar{position:fixed;}
+  .tabbar button{position:relative; z-index:1;}
+  .tab-thumb{position:absolute; z-index:0; left:0; width:0; border-radius:12px; pointer-events:none;
+    background:color-mix(in srgb, var(--ink) 9%, transparent);}
   .tabbar svg{width:22px; height:22px;}
   @media(max-width:1023px){ .toast{bottom:calc(84px + env(safe-area-inset-bottom));} }
 
@@ -1481,6 +1520,7 @@
 </div>
 
 <nav class="tabbar" id="tabbar" aria-label="セクション移動">
+  <span class="tab-thumb" id="tabThumb" aria-hidden="true"></span>
   <button data-go="sec-top" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 8-8"/><path d="M15 7h5v5"/></svg>チャート</button>
   <button data-go="sec-verdict"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="5" width="14" height="14" rx="2" transform="rotate(-4 12 12)"/><path d="M12 9v6" stroke-linecap="round"/></svg>判定</button>
   <button data-go="sec-limit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>指値</button>
@@ -2597,6 +2637,9 @@ function applyQuote(){
     heroBase = {price, chg:chgAbs, pct:chgPct};
     if(!scrubbing) setHeroPrice(price, chgAbs, chgPct, false);
     if(lastQuotePrice != null && price !== lastQuotePrice && !scrubbing){
+      // 変わった桁だけ回して、どこが動いたか分かるように（背景もうっすら光らせる）
+      const unit = priceHTML(price).slice(fmtPrice(price).length);
+      rollDigits(priceEl, fmtPrice(lastQuotePrice), fmtPrice(price), price > lastQuotePrice, unit);
       priceEl.classList.remove('flash-up','flash-down');
       void priceEl.offsetWidth;
       priceEl.classList.add(price > lastQuotePrice ? 'flash-up' : 'flash-down');
@@ -3915,7 +3958,8 @@ function refreshWatchlistPrices(){
     if(!q || q.price == null){ if(priceEl.textContent==='…') priceEl.textContent='--'; return; }
     const prev = parseFloat(priceEl.dataset.price || 'NaN');
     priceEl.dataset.price = q.price;
-    priceEl.textContent = fmtPrice(q.price);
+    if(!isNaN(prev) && q.price !== prev) rollDigits(priceEl, fmtPrice(prev), fmtPrice(q.price), q.price > prev);
+    else priceEl.textContent = fmtPrice(q.price);
     if(!isNaN(prev) && q.price !== prev){
       priceEl.classList.remove('flash-up','flash-down');
       void priceEl.offsetWidth;
@@ -4097,7 +4141,7 @@ async function loadCompareChart(){
 }
 
 // ---------- チャートのツールバー（期間ボタン＋表示メニュー） ----------
-let _viewMenuOpen = false;
+let _viewMenuOpen = false, _swJust = null;
 // 表示メニューの各項目の説明。PC はホバー／フォーカスで吹き出し、「?」を押すと行の下に開く（スマホも同じ文）
 const OPT_HELP = {
   candle: ['ローソク足', '1本で「始値・高値・安値・終値」を表します。太い部分の色で、その期間に上がったか下がったかが一目で分かります。OFFにすると終値を結んだ折れ線になります。'],
@@ -4157,7 +4201,8 @@ document.addEventListener('scroll', hideOptTip, true);
 function renderControls(){
   const IVS = [['auto','自動'],['1m','1分'],['5m','5分'],['15m','15分'],['30m','30分'],['60m','1時間'],['1d','日'],['1wk','週'],['1mo','月']];
   const ivNow = state.ivAuto ? 'auto' : state.interval;
-  const sw = (on, fn, label, disabled) => `<button class="toggle" role="switch" aria-checked="${on}" aria-label="${label}" onclick="${fn}"${disabled?' disabled':''}></button>`;
+  // 押したスイッチだけ、作り直したあとに玉が伸びながら移る動きを付ける（_swJust に押した項目名を入れておく）
+  const sw = (on, fn, label, disabled) => `<button class="toggle${_swJust===label?' sw-anim':''}" role="switch" aria-checked="${on}" aria-label="${label}" onclick="_swJust='${label}';${fn}"${disabled?' disabled':''}></button>`;
   const ma = JSON.stringify(state.maDays);
   const isDaily = state.interval === '1d';
   const N = fullCloses.length;
@@ -4202,6 +4247,7 @@ function renderControls(){
       </div>
     </div>
     <div class="iv-row" role="group" aria-label="足（ローソク1本の長さ）">
+      <span class="thumb" id="ivThumb" aria-hidden="true"></span>
       <span class="iv-label">足</span>
       ${IVS.map(([v,l])=>{
         // 自動のときは、いま選ばれている足も添える（例: 自動・30分）
@@ -4209,27 +4255,31 @@ function renderControls(){
         return `<button class="pill ${v===ivNow?'active':''}" onclick="setIntervalMode('${v}')" title="${v==='auto'?'期間に合わせて足を選ぶ':''}">${label}</button>`;
       }).join('')}
     </div>`;
+  _swJust = null;
   moveSegThumb();
 }
-// 期間のつまみ：前の位置から新しいボタンへ滑らせる（ツールバーは作り直すので FLIP で）
-let _thumbFrom = null;
+// 期間・足の選択の印：伸びるハイライトで前の位置から新しいボタンへ（ツールバーは作り直すが、ばねの状態は持ち越す）
+const _segHL = makeStretchHighlight(), _ivHL = makeStretchHighlight();
+let _hlInstant = false;
 function moveSegThumb(){
-  const seg = chartToolbar.querySelector('#periodSeg'), th = chartToolbar.querySelector('#segThumb');
-  if(!seg || !th || !seg.isConnected) return;
-  const on = seg.querySelector('button.on');
-  if(!on){ th.classList.add('none'); return; }
-  const to = {x:on.offsetLeft, w:on.offsetWidth};
-  if(_thumbFrom && !prefersReducedMotion()){
-    th.style.transition = 'none';
-    th.style.width = _thumbFrom.w + 'px'; th.style.transform = `translateX(${_thumbFrom.x}px)`;
-    th.offsetWidth;
-    th.style.transition = '';
+  const iv = chartToolbar.querySelector('.iv-row'), ivTh = chartToolbar.querySelector('#ivThumb');
+  const ivOn = iv?.querySelector('.pill.active');
+  if(ivTh){
+    ivTh.classList.toggle('none', !ivOn);
+    if(ivOn){
+      ivTh.style.top = ivOn.offsetTop + 'px'; ivTh.style.height = ivOn.offsetHeight + 'px';
+      _ivHL.to(ivTh, ivOn.offsetLeft, ivOn.offsetWidth, _hlInstant);
+    }
   }
-  th.style.width = to.w + 'px'; th.style.transform = `translateX(${to.x}px)`;
-  _thumbFrom = to;
+  const seg = chartToolbar.querySelector('#periodSeg'), th = chartToolbar.querySelector('#segThumb');
+  if(!seg || !th || !seg.isConnected){ _hlInstant = false; return; }
+  const on = seg.querySelector('button.on');
+  if(!on){ th.classList.add('none'); _hlInstant = false; return; }
+  _segHL.to(th, on.offsetLeft, on.offsetWidth, _hlInstant);
+  _hlInstant = false;
   if(seg.scrollWidth > seg.clientWidth) on.scrollIntoView({block:'nearest', inline:'nearest'});
 }
-addEventListener('resize', () => { _thumbFrom = null; moveSegThumb(); });
+addEventListener('resize', () => { _hlInstant = true; moveSegThumb(); syncTabThumb(true); });
 function toggleViewMenu(ev){
   ev.stopPropagation();
   _viewMenuOpen = !_viewMenuOpen;
@@ -4422,10 +4472,20 @@ function setupScrollSpy(){
     entries.forEach(e=>{
       if(!e.isIntersecting) return;
       const go = TAB_OF_SECTION[e.target.id];
-      if(go) tabs.forEach(b=>b.classList.toggle('on', b.dataset.go===go));
+      if(go){ tabs.forEach(b=>b.classList.toggle('on', b.dataset.go===go)); syncTabThumb(); }
     });
   }, {rootMargin:'-45% 0px -50% 0px'});
   Object.keys(TAB_OF_SECTION).forEach(id=>{ const el=document.getElementById(id); if(el) spyObserver.observe(el); });
+  syncTabThumb(true);
+}
+// 下部タブの印：選んだタブの後ろの淡いピルが、伸びるハイライトで移る
+const _tabHL = makeStretchHighlight();
+function syncTabThumb(instant){
+  const bar = document.getElementById('tabbar'), th = document.getElementById('tabThumb');
+  const on = bar?.querySelector('button.on');
+  if(!th || !on || !bar.offsetParent && getComputedStyle(bar).display === 'none') return;
+  th.style.top = on.offsetTop + 'px'; th.style.height = on.offsetHeight + 'px';
+  _tabHL.to(th, on.offsetLeft, on.offsetWidth, instant);
 }
 
 // ---------- main render ----------
@@ -4509,6 +4569,83 @@ document.addEventListener('wheel', e => {
 // ---------- motion ----------
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 let introPending = false, introSymbol = null, introObserver = null, lastStampText = null;
+
+// ---- ばね（DesignBookmark の共通エンジンを自分用に書いたもの） ----
+// 1本のばね {x, v, t, k, c}：x が目標 t へ向かう（k=硬さ、c=減衰、質量1）。1フレームを4分割して計算し、dt は 1/30 秒で頭打ち。
+// 動きを減らす設定では臨界減衰（c=2√k）にして、動きは残し揺れ戻りだけ消す。
+function springStep(s, dt){
+  const c = prefersReducedMotion() ? 2 * Math.sqrt(s.k) : s.c, h = dt / 4;
+  for(let i = 0; i < 4; i++){ s.v += (-s.k * (s.x - s.t) - c * s.v) * h; s.x += s.v * h; }
+}
+const springRest = s => Math.abs(s.x - s.t) < .3 && Math.abs(s.v) < 4;
+// ばねを CSS の linear() イージングにする（目標が途中で変わらない所用）。settle 280/22 → 約625ms・行き過ぎ約6%
+function springLinear(k, c, samples = 40){
+  const dt = 1 / 480; let x = 0, v = 0, t = 0; const xs = [];
+  while(t < 4){ v += (-k * (x - 1) - c * v) * dt; x += v * dt; t += dt; xs.push(x);
+    if(t > .1 && Math.abs(x - 1) < .002 && Math.abs(v) < .02) break; }
+  const pts = [0];
+  for(let i = 1; i <= samples; i++) pts.push(+xs[Math.round(i / samples * (xs.length - 1))].toFixed(4));
+  pts[pts.length - 1] = 1;
+  return {ms: Math.round(t * 1000), easing: `linear(${pts.join(', ')})`};
+}
+(() => {
+  const s = springLinear(280, 22), r = document.documentElement.style;
+  r.setProperty('--spring-settle', s.easing); r.setProperty('--spring-settle-ms', s.ms + 'ms');
+})();
+
+// 伸びるハイライト：左端と右端を別のばねにして、進む側を硬く（620/36）、反対側を柔らかく（190/19）。
+// 進む側がぱっと伸び、遅れた端が追いついて元の幅に戻る（ゴムの伸び縮み）。描く先の要素は作り直されても差し替えられる
+function makeStretchHighlight(){
+  const L = {x:0, v:0, t:0, k:620, c:36}, R = {x:0, v:0, t:0, k:620, c:36};
+  let el = null, raf = 0, last = 0, placed = false;
+  const draw = () => { if(el){ el.style.transform = `translateX(${L.x}px)`; el.style.width = Math.max(0, R.x - L.x) + 'px'; } };
+  const frame = now => {
+    const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
+    springStep(L, dt); springStep(R, dt); draw();
+    if(springRest(L) && springRest(R)){ L.x = L.t; R.x = R.t; L.v = R.v = 0; draw(); raf = 0; }
+    else raf = requestAnimationFrame(frame);
+  };
+  return {
+    to(target, left, width, instant){
+      el = target;
+      const right = left + width;
+      if(!placed || instant){
+        placed = true; cancelAnimationFrame(raf); raf = 0;
+        L.x = L.t = left; R.x = R.t = right; L.v = R.v = 0; draw(); return;
+      }
+      if(left === L.t && right === R.t){ draw(); return; }
+      const toRight = left + right > L.t + R.t;
+      Object.assign(toRight ? R : L, {k:620, c:36});
+      Object.assign(toRight ? L : R, {k:190, c:19});
+      L.t = left; R.t = right; draw();
+      if(!raf){ last = performance.now(); raf = requestAnimationFrame(frame); }
+    },
+  };
+}
+
+// 数字が1桁ずつ回る（オドメーター）。変わった桁だけ、上がれば下から・下がれば上から入れ替わる。
+// 右（小さい桁）から 45ms ずつ遅らせて、繰り上がりが左へ波のように伝わる。動きは settle のばね（約625ms）
+function rollDigits(el, oldTxt, newTxt, up, suffix = ''){
+  if(prefersReducedMotion() || !oldTxt || oldTxt === newTxt){ el.innerHTML = newTxt + suffix; return; }
+  const n = Math.max(oldTxt.length, newTxt.length);
+  const o = oldTxt.padStart(n, ' '), w = newTxt.padStart(n, ' ');
+  const isD = ch => ch >= '0' && ch <= '9';
+  let html = '', k = 0;
+  for(let i = n - 1; i >= 0; i--){
+    const a = o[i], b = w[i];
+    if(b === ' ') continue;
+    if(isD(b) && a !== b && (isD(a) || a === ' ')){
+      const pair = up ? `<span>${a === ' ' ? '&nbsp;' : a}</span><span>${b}</span>` : `<span>${b}</span><span>${a === ' ' ? '&nbsp;' : a}</span>`;
+      html = `<span class="odo"><span class="odo-in ${up ? 'odo-up' : 'odo-down'}" style="animation-delay:${k * 45}ms">${pair}</span></span>` + html;
+      k++;
+    } else html = b + html;
+  }
+  el.innerHTML = html + suffix;
+  clearTimeout(el._odoT);
+  const ms = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--spring-settle-ms')) || 625;
+  // 回り終えたら普通の文字に戻す（途中でほかの表示に差し替わっていたら触らない）
+  el._odoT = setTimeout(() => { if(el.querySelector('.odo')) el.innerHTML = newTxt + suffix; }, ms + k * 45 + 60);
+}
 
 // 数値のカウントアップ（expo out）
 function countUp(el){
@@ -4985,7 +5122,7 @@ function render(){
           <div class="fng-value"><span data-count="${rsiVal}">${rsiVal}</span> <span style="font-size:14px; color:var(--ink-soft);">/ 100</span></div>
           <div class="fng-class">${sentClass}</div>
           <p>${rsiNote2}</p>
-          <p style="font-size:12px; color:var(--ink-soft); margin-top:6px;">※ 暗号資産以外はRSI（相対力指数）を市場心理の目安として表示しています。市場全体のセンチメント調査の値ではありません。</p>
+          <details class="fold"><summary>この値について</summary><div>暗号資産以外はRSI（相対力指数）を市場心理の目安として表示しています。市場全体のセンチメント調査の値ではありません。</div></details>
         </div>
       </div>
     </div>`;
@@ -5088,12 +5225,12 @@ function render(){
           <span>安値 <b id="rtLow">${quote.dayLow!=null?fmtPrice(quote.dayLow):'--'}</b></span>
           <span>出来高 <b id="rtVol">${fmtVolume(quote.volume)}</b></span>
         </div>` : ''}
-        <div class="scenario-note" style="margin-top:10px; padding-top:8px;">
+        <details class="fold"><summary>データについて</summary><div>
           ${hasBidAsk
-            ? '※ 最良気配（最良の買い/売り1本）のみ表示しています。'
-            : '※ この銘柄では気配値（買い/売り注文の価格）はデータソースから取得できません。'}
+            ? '最良気配（最良の買い/売り1本）のみ表示しています。'
+            : 'この銘柄では気配値（買い/売り注文の価格）はデータソースから取得できません。'}
           各価格帯ごとの注文数量（板全体）は、Yahoo Financeの公開データでは取得できません。
-        </div>
+        </div></details>
       </div>`;
   }
 
@@ -5192,6 +5329,7 @@ function render(){
   // 作り直さない期間ボタンを差し込む
   content.querySelector('[data-slot="toolbar"]')?.replaceWith(chartToolbar);
   moveSegThumb();
+  if(spyObserver) setupScrollSpy(); // 作り直したパネルを下部タブの追従に付け直す（期間の切り替えなどでも外れないように）
   // スマホ用のヒーローの判子（判定が変わったときは押し直す）
   const mini = document.getElementById('miniStamp');
   mini.textContent = stampText;
